@@ -41,6 +41,12 @@ python -m venv .venv
 python -m pip install -e .[dev]
 ```
 
+Or from Windows Explorer / `cmd`:
+
+```bat
+setup_windows_env.bat
+```
+
 ## Run
 
 ```powershell
@@ -53,6 +59,12 @@ Or via the console script:
 form-constructor
 ```
 
+Or from the project root on Windows:
+
+```bat
+run_form_constructor.bat
+```
+
 ## Test
 
 For headless environments, use the Qt offscreen backend:
@@ -60,6 +72,12 @@ For headless environments, use the Qt offscreen backend:
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
 python -m pytest -q
+```
+
+Or from the project root on Windows:
+
+```bat
+run_tests.bat
 ```
 
 ## Current Status
