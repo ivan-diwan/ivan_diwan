@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "form-constructor"
+version = "0.1.0"
+description = "PySide6 desktop form constructor with JSON and Python round-trip support."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6>=6.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+form-constructor = "form_constructor.app.bootstrap:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["form_constructor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
