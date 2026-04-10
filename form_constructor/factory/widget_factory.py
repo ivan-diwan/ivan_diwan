@@ -256,6 +256,7 @@ class WidgetFactory:
             current_key="date",
             current_default="2026-01-01",
         )
+        widget.setDisplayFormat(str(entity.properties.get("display_format", "yyyy-MM-dd")))
 
     def _apply_datetime_edit_properties(self, widget: QDateTimeEdit, entity: EntityModel) -> None:
         self._apply_datetime_bounds(
@@ -264,6 +265,7 @@ class WidgetFactory:
             current_key="datetime",
             current_default="2026-01-01 12:00:00",
         )
+        widget.setDisplayFormat(str(entity.properties.get("display_format", "yyyy-MM-dd HH:mm:ss")))
 
     def _apply_calendar_widget_properties(self, widget: QCalendarWidget, entity: EntityModel) -> None:
         self._apply_date_bounds(
@@ -300,6 +302,7 @@ class WidgetFactory:
             current_key="time",
             current_default="12:00:00",
         )
+        widget.setDisplayFormat(str(entity.properties.get("display_format", "HH:mm:ss")))
 
     def _apply_progress_bar_properties(self, widget: QProgressBar, entity: EntityModel) -> None:
         value = int(entity.properties.get("value", 0))

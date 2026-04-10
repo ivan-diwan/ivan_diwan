@@ -42,7 +42,7 @@ class PalettePanel(QWidget):
         self._description_view.setReadOnly(True)
         self._description_view.setFixedHeight(72)
         self._description_view.setPlaceholderText(
-            "Нажмите на объект в дереве, чтобы увидеть его описание."
+            "Выберите объект в дереве, чтобы увидеть его описание."
         )
 
         layout = QVBoxLayout(self)

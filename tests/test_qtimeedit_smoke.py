@@ -49,17 +49,20 @@ class QTimeEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_time", "08:00:00")
         self.controller.update_entity_property(entity.id, "maximum_time", "18:00:00")
         self.controller.update_entity_property(entity.id, "time", "09:30:00")
+        self.controller.update_entity_property(entity.id, "display_format", "HH:mm")
         self._process_events()
 
         updated = self.controller.active_document.get_entity(entity.id)
         self.assertEqual(updated.properties["minimum_time"], "08:00:00")
         self.assertEqual(updated.properties["maximum_time"], "18:00:00")
         self.assertEqual(updated.properties["time"], "09:30:00")
+        self.assertEqual(updated.properties["display_format"], "HH:mm")
 
         time_widget = self.window._form_window._canvas._item_views_by_id[entity.id].inner_widget
         self.assertEqual(time_widget.minimumTime().toString("HH:mm:ss"), "08:00:00")
         self.assertEqual(time_widget.maximumTime().toString("HH:mm:ss"), "18:00:00")
         self.assertEqual(time_widget.time().toString("HH:mm:ss"), "09:30:00")
+        self.assertEqual(time_widget.displayFormat(), "HH:mm")
         self.assertIn('"type": "QTimeEdit"', self.controller.get_snapshot())
 
     def test_qtimeedit_range_normalization_keeps_document_valid(self) -> None:
@@ -90,6 +93,7 @@ class QTimeEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_time", "08:00:00")
         self.controller.update_entity_property(entity.id, "maximum_time", "18:00:00")
         self.controller.update_entity_property(entity.id, "time", "09:30:00")
+        self.controller.update_entity_property(entity.id, "display_format", "HH:mm")
         before_payload = self.serializer.serialize_to_dict(self.controller.active_document)
 
         with managed_test_paths("tests\\_tmp_qtimeedit.json", "tests\\_tmp_qtimeedit.py") as (json_path, py_path):
@@ -107,6 +111,7 @@ class QTimeEditSmokeTests(unittest.TestCase):
             self.assertIn(".setMinimumTime(QTime(8, 0, 0))", python_source)
             self.assertIn(".setMaximumTime(QTime(18, 0, 0))", python_source)
             self.assertIn(".setTime(QTime(9, 30, 0))", python_source)
+            self.assertIn(".setDisplayFormat('HH:mm')", python_source)
 
             self.controller.export_document_to_python(str(py_path))
             self.controller.load_document(str(py_path))
@@ -139,7 +144,7 @@ class QTimeEditSmokeTests(unittest.TestCase):
         self.assertEqual(self.controller.active_document.get_entity(time_in_splitter.id).parent_id, splitter_pane.id)
         self.controller.validate_active_document()
 
-    def test_qtimeedit_import_rejects_display_format_for_current_version(self) -> None:
+    def test_qtimeedit_import_preserves_display_format(self) -> None:
         importer = PythonImporter(self.registry)
         source = """
 import sys
@@ -162,8 +167,9 @@ class GeneratedWidget(QWidget):
         self.time_edit_1.setTime(QTime(9, 30, 0))
         self.time_edit_1.setDisplayFormat("HH:mm")
 """
-        with self.assertRaisesRegex(ValueError, "display format import is not supported"):
-            importer.import_from_code(source)
+        document = importer.import_from_code(source)
+        entity = document.get_root_entities()[0]
+        self.assertEqual(entity.properties["display_format"], "HH:mm")
 
     @classmethod
     def _process_events(cls) -> None:

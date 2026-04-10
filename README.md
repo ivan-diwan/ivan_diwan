@@ -95,6 +95,9 @@ The current architecture cleanup stage is complete:
 - editor save/export paths now validate the active document before file operations
 - property editor parse errors are surfaced immediately in the editor message log
 - `WidgetRegistry` exposes grouped palette helpers for safer future catalog expansion
+- date/time editors now support configurable `display_format` end-to-end across runtime, import, export, normalize, and validate flows
+- canvas selection now resolves internal special-container entities to the visible container view
+- palette descriptions for the updated slice are now readable in the editor UI
 
 ## Architecture Boundaries
 

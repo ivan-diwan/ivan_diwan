@@ -49,17 +49,20 @@ class QDateEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_date", "2020-01-01")
         self.controller.update_entity_property(entity.id, "maximum_date", "2030-12-31")
         self.controller.update_entity_property(entity.id, "date", "2026-04-08")
+        self.controller.update_entity_property(entity.id, "display_format", "dd.MM.yyyy")
         self._process_events()
 
         updated = self.controller.active_document.get_entity(entity.id)
         self.assertEqual(updated.properties["minimum_date"], "2020-01-01")
         self.assertEqual(updated.properties["maximum_date"], "2030-12-31")
         self.assertEqual(updated.properties["date"], "2026-04-08")
+        self.assertEqual(updated.properties["display_format"], "dd.MM.yyyy")
 
         date_widget = self.window._form_window._canvas._item_views_by_id[entity.id].inner_widget
         self.assertEqual(date_widget.minimumDate().toString("yyyy-MM-dd"), "2020-01-01")
         self.assertEqual(date_widget.maximumDate().toString("yyyy-MM-dd"), "2030-12-31")
         self.assertEqual(date_widget.date().toString("yyyy-MM-dd"), "2026-04-08")
+        self.assertEqual(date_widget.displayFormat(), "dd.MM.yyyy")
         self.assertIn('"type": "QDateEdit"', self.controller.get_snapshot())
 
     def test_qdateedit_range_normalization_keeps_document_valid(self) -> None:
@@ -90,6 +93,7 @@ class QDateEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_date", "2020-01-01")
         self.controller.update_entity_property(entity.id, "maximum_date", "2030-12-31")
         self.controller.update_entity_property(entity.id, "date", "2026-04-08")
+        self.controller.update_entity_property(entity.id, "display_format", "dd.MM.yyyy")
         before_payload = self.serializer.serialize_to_dict(self.controller.active_document)
 
         with managed_test_paths("tests\\_tmp_qdateedit.json", "tests\\_tmp_qdateedit.py") as (json_path, py_path):
@@ -107,6 +111,7 @@ class QDateEditSmokeTests(unittest.TestCase):
             self.assertIn(".setMinimumDate(QDate(2020, 1, 1))", python_source)
             self.assertIn(".setMaximumDate(QDate(2030, 12, 31))", python_source)
             self.assertIn(".setDate(QDate(2026, 4, 8))", python_source)
+            self.assertIn(".setDisplayFormat('dd.MM.yyyy')", python_source)
 
             self.controller.export_document_to_python(str(py_path))
             self.controller.load_document(str(py_path))
@@ -139,7 +144,7 @@ class QDateEditSmokeTests(unittest.TestCase):
         self.assertEqual(self.controller.active_document.get_entity(date_in_splitter.id).parent_id, splitter_pane.id)
         self.controller.validate_active_document()
 
-    def test_qdateedit_import_rejects_display_format_for_current_version(self) -> None:
+    def test_qdateedit_import_preserves_display_format(self) -> None:
         importer = PythonImporter(self.registry)
         source = """
 import sys
@@ -162,8 +167,9 @@ class GeneratedWidget(QWidget):
         self.date_edit_1.setDate(QDate(2026, 4, 8))
         self.date_edit_1.setDisplayFormat("dd.MM.yyyy")
 """
-        with self.assertRaisesRegex(ValueError, "display format import is not supported"):
-            importer.import_from_code(source)
+        document = importer.import_from_code(source)
+        entity = document.get_root_entities()[0]
+        self.assertEqual(entity.properties["display_format"], "dd.MM.yyyy")
 
     @classmethod
     def _process_events(cls) -> None:

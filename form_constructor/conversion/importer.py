@@ -500,40 +500,14 @@ class PythonImporter:
             )
         if method_name == "setDisplayFormat" and call.args:
             if entity.type_name == "QDateEdit":
-                self._raise_diagnostic(
-                    "QDateEdit display format import is not supported in this version.",
-                    stage="apply_entity_call",
-                    node=call,
-                    pattern="setDisplayFormat(...)",
-                    entity=entity,
-                    unsupported=True,
-                )
+                entity.properties["display_format"] = self._string_value(call.args[0]) or "yyyy-MM-dd"
+                return
             if entity.type_name == "QTimeEdit":
-                self._raise_diagnostic(
-                    "QTimeEdit display format import is not supported in this version.",
-                    stage="apply_entity_call",
-                    node=call,
-                    pattern="setDisplayFormat(...)",
-                    entity=entity,
-                    unsupported=True,
-                )
+                entity.properties["display_format"] = self._string_value(call.args[0]) or "HH:mm:ss"
+                return
             if entity.type_name == "QDateTimeEdit":
-                self._raise_diagnostic(
-                    "QDateTimeEdit display format import is not supported in this version.",
-                    stage="apply_entity_call",
-                    node=call,
-                    pattern="setDisplayFormat(...)",
-                    entity=entity,
-                    unsupported=True,
-                )
-            self._raise_diagnostic(
-                "Display format import is not supported in this version.",
-                stage="apply_entity_call",
-                node=call,
-                pattern="setDisplayFormat(...)",
-                entity=entity,
-                unsupported=True,
-            )
+                entity.properties["display_format"] = self._string_value(call.args[0]) or "yyyy-MM-dd HH:mm:ss"
+                return
         if method_name == "setGridVisible" and call.args:
             self._raise_diagnostic(
                 "QCalendarWidget grid visibility import is not supported in this version.",
@@ -926,6 +900,7 @@ class PythonImporter:
             properties.setdefault("date", "2026-01-01")
             properties.setdefault("minimum_date", "1900-01-01")
             properties.setdefault("maximum_date", "2100-12-31")
+            properties.setdefault("display_format", "yyyy-MM-dd")
         elif type_name == "QCalendarWidget":
             properties.setdefault("selected_date", "2026-01-01")
             properties.setdefault("minimum_date", "1900-01-01")
@@ -946,10 +921,12 @@ class PythonImporter:
             properties.setdefault("time", "12:00:00")
             properties.setdefault("minimum_time", "00:00:00")
             properties.setdefault("maximum_time", "23:59:59")
+            properties.setdefault("display_format", "HH:mm:ss")
         elif type_name == "QDateTimeEdit":
             properties.setdefault("datetime", "2026-01-01 12:00:00")
             properties.setdefault("minimum_datetime", "1900-01-01 00:00:00")
             properties.setdefault("maximum_datetime", "2100-12-31 23:59:59")
+            properties.setdefault("display_format", "yyyy-MM-dd HH:mm:ss")
         elif type_name == "QSpinBox":
             properties.setdefault("value", 0)
             properties.setdefault("minimum", 0)

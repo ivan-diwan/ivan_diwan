@@ -60,6 +60,20 @@ class WidgetCatalogAlignmentSmokeTests(unittest.TestCase):
         self.assertTrue(palette_types.issubset(creatable_types))
         self.assertFalse(palette_types.intersection(internal_types))
 
+    def test_date_and_time_descriptions_reflect_display_format_support(self) -> None:
+        expected_fragments = {
+            "QDateEdit": "форматом отображения",
+            "QTimeEdit": "форматом отображения",
+            "QDateTimeEdit": "форматом отображения",
+            "QCalendarWidget": "выбранной даты",
+        }
+
+        for type_name, fragment in expected_fragments.items():
+            with self.subTest(type_name=type_name):
+                definition = self.registry.get_type(type_name)
+                self.assertIsNotNone(definition)
+                self.assertIn(fragment, definition.description)
+
     def _make_entity(self, type_name: str) -> EntityModel:
         width, height = self.registry.get_default_size(type_name)
         return EntityModel(

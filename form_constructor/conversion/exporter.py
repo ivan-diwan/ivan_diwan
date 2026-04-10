@@ -542,6 +542,7 @@ class PythonExporter:
             f"self.{ref}.setMinimumDate({self._emit_qdate(str(entity.properties.get('minimum_date', '1900-01-01')))})",
             f"self.{ref}.setMaximumDate({self._emit_qdate(str(entity.properties.get('maximum_date', '2100-12-31')))})",
             f"self.{ref}.setDate({self._emit_qdate(str(entity.properties.get('date', '2026-01-01')))})",
+            f"self.{ref}.setDisplayFormat({self._python_string(entity.properties.get('display_format', 'yyyy-MM-dd'))})",
         ]
 
     def _emit_time_edit_properties(self, entity: EntityModel) -> list[str]:
@@ -550,6 +551,7 @@ class PythonExporter:
             f"self.{ref}.setMinimumTime({self._emit_qtime(str(entity.properties.get('minimum_time', '00:00:00')))})",
             f"self.{ref}.setMaximumTime({self._emit_qtime(str(entity.properties.get('maximum_time', '23:59:59')))})",
             f"self.{ref}.setTime({self._emit_qtime(str(entity.properties.get('time', '12:00:00')))})",
+            f"self.{ref}.setDisplayFormat({self._python_string(entity.properties.get('display_format', 'HH:mm:ss'))})",
         ]
 
     def _emit_lcd_number_properties(self, entity: EntityModel) -> list[str]:
@@ -565,6 +567,7 @@ class PythonExporter:
             f"self.{ref}.setMinimumDateTime({self._emit_qdatetime(str(entity.properties.get('minimum_datetime', '1900-01-01 00:00:00')))})",
             f"self.{ref}.setMaximumDateTime({self._emit_qdatetime(str(entity.properties.get('maximum_datetime', '2100-12-31 23:59:59')))})",
             f"self.{ref}.setDateTime({self._emit_qdatetime(str(entity.properties.get('datetime', '2026-01-01 12:00:00')))})",
+            f"self.{ref}.setDisplayFormat({self._python_string(entity.properties.get('display_format', 'yyyy-MM-dd HH:mm:ss'))})",
         ]
 
     def _emit_calendar_widget_properties(self, entity: EntityModel) -> list[str]:

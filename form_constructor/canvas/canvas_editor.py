@@ -199,9 +199,9 @@ class CanvasEditor(QFrame):
         self.rebuild_all()
 
     def select_entity(self, entity_id: str | None) -> None:
-        self._selected_entity_id = entity_id
+        self._selected_entity_id = self._visible_entity_id_for_selection(entity_id)
         for current_id, view in self._item_views_by_id.items():
-            view.set_selected(current_id == entity_id)
+            view.set_selected(current_id == self._selected_entity_id)
 
     def request_select(self, entity_id: str) -> None:
         self._controller.select_entity(entity_id)
@@ -303,3 +303,13 @@ class CanvasEditor(QFrame):
     def _refresh_wizard_view(self, view, entity: EntityModel) -> None:
         view.refresh_from_document(entity)
         self._widget_factory.refresh_widget(view.inner_widget, entity)
+
+    def _visible_entity_id_for_selection(self, entity_id: str | None) -> str | None:
+        if entity_id is None or self._document is None:
+            return entity_id
+        current_entity = self._document.get_entity(entity_id)
+        while current_entity is not None:
+            if self._document.widget_registry.get_editor_kind(current_entity.type) != "internal":
+                return current_entity.id
+            current_entity = self._document.get_entity(current_entity.parent_id)
+        return entity_id

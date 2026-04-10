@@ -238,12 +238,15 @@ class DocumentValidator:
                 date_value = entity.properties.get("date", "")
                 minimum_date = entity.properties.get("minimum_date", "")
                 maximum_date = entity.properties.get("maximum_date", "")
+                display_format = entity.properties.get("display_format", "")
                 if not isinstance(date_value, str) or not is_valid_date_string(date_value):
                     raise ValueError(f"QDateEdit '{entity.id}' date must be valid YYYY-MM-DD string.")
                 if not isinstance(minimum_date, str) or not is_valid_date_string(minimum_date):
                     raise ValueError(f"QDateEdit '{entity.id}' minimum_date must be valid YYYY-MM-DD string.")
                 if not isinstance(maximum_date, str) or not is_valid_date_string(maximum_date):
                     raise ValueError(f"QDateEdit '{entity.id}' maximum_date must be valid YYYY-MM-DD string.")
+                if not isinstance(display_format, str) or not display_format.strip():
+                    raise ValueError(f"QDateEdit '{entity.id}' display_format must be non-empty str.")
                 date_parsed = parse_date_string(date_value)
                 minimum_parsed = parse_date_string(minimum_date)
                 maximum_parsed = parse_date_string(maximum_date)
@@ -276,12 +279,15 @@ class DocumentValidator:
                 time_value = entity.properties.get("time", "")
                 minimum_time = entity.properties.get("minimum_time", "")
                 maximum_time = entity.properties.get("maximum_time", "")
+                display_format = entity.properties.get("display_format", "")
                 if not isinstance(time_value, str) or not is_valid_time_string(time_value):
                     raise ValueError(f"QTimeEdit '{entity.id}' time must be valid HH:MM:SS string.")
                 if not isinstance(minimum_time, str) or not is_valid_time_string(minimum_time):
                     raise ValueError(f"QTimeEdit '{entity.id}' minimum_time must be valid HH:MM:SS string.")
                 if not isinstance(maximum_time, str) or not is_valid_time_string(maximum_time):
                     raise ValueError(f"QTimeEdit '{entity.id}' maximum_time must be valid HH:MM:SS string.")
+                if not isinstance(display_format, str) or not display_format.strip():
+                    raise ValueError(f"QTimeEdit '{entity.id}' display_format must be non-empty str.")
                 time_parsed = parse_time_string(time_value)
                 minimum_parsed = parse_time_string(minimum_time)
                 maximum_parsed = parse_time_string(maximum_time)
@@ -295,6 +301,7 @@ class DocumentValidator:
                 datetime_value = entity.properties.get("datetime", "")
                 minimum_datetime = entity.properties.get("minimum_datetime", "")
                 maximum_datetime = entity.properties.get("maximum_datetime", "")
+                display_format = entity.properties.get("display_format", "")
                 if not isinstance(datetime_value, str) or not is_valid_datetime_string(datetime_value):
                     raise ValueError(
                         f"QDateTimeEdit '{entity.id}' datetime must be valid YYYY-MM-DD HH:MM:SS string."
@@ -307,6 +314,8 @@ class DocumentValidator:
                     raise ValueError(
                         f"QDateTimeEdit '{entity.id}' maximum_datetime must be valid YYYY-MM-DD HH:MM:SS string."
                     )
+                if not isinstance(display_format, str) or not display_format.strip():
+                    raise ValueError(f"QDateTimeEdit '{entity.id}' display_format must be non-empty str.")
                 datetime_parsed = parse_datetime_string(datetime_value)
                 minimum_parsed = parse_datetime_string(minimum_datetime)
                 maximum_parsed = parse_datetime_string(maximum_datetime)

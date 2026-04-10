@@ -1,0 +1,245 @@
+Object Type Lifecycle Plan
+
+Date: 2026-04-10
+Working branch: `codex/working-baseline`
+Context: this plan is dedicated specifically to the mechanism for safely adding
+or fully removing widget/object types across the whole system.
+
+
+1. Purpose
+
+The project already supports many widget types, but the lifecycle of a type is
+still distributed across several layers:
+
+- registry
+- runtime widget factory
+- property normalization
+- validation
+- Python export
+- Python import
+- UI/property editing
+- tests
+
+Because of that, adding a new type or removing an existing one is still a
+multi-step manual operation.
+
+The purpose of this plan is to design and introduce a repeatable mechanism that
+makes object-type lifecycle management explicit, testable, and safer.
+
+
+2. Main objective
+
+Create a project-level mechanism that answers two questions reliably:
+
+- what exactly must be implemented for a new object type to be considered fully supported
+- what exactly must be removed or adapted for an existing object type to be considered fully deleted
+
+The result should be a visible and enforceable contract, not only tribal
+knowledge.
+
+
+3. Why this should happen before the next major catalog expansion
+
+This work is timely now because:
+
+- the architecture is cleaner than before
+- validation and diagnostics are already stronger
+- the next likely product growth area is widget catalog expansion
+- without a lifecycle mechanism, each new type will continue to spread manual work across many files
+
+Doing this now reduces future duplication and lowers the chance of partial,
+inconsistent type support.
+
+
+4. Core design target
+
+The system should explicitly define support levels for object types.
+
+Recommended support levels:
+
+- `registry_only`
+  Meaning:
+  - the type exists in metadata only and is not considered available to the user
+
+- `runtime_supported`
+  Meaning:
+  - the type can be created and rendered in runtime/canvas
+
+- `document_supported`
+  Meaning:
+  - the type also has normalization and validation support
+
+- `roundtrip_supported`
+  Meaning:
+  - the type also supports export/import consistently
+
+- `special_container_supported`
+  Meaning:
+  - the type additionally owns internal children, special actions, or special canvas/UI handling
+
+This does not need to be exposed to end users, but it should exist clearly in
+the codebase and test expectations.
+
+
+5. What the mechanism must cover
+
+For each object type, the lifecycle mechanism should make these responsibilities
+explicit:
+
+- registry definition
+  Files:
+  - `form_constructor/registry/builtins.py`
+  - `form_constructor/registry/definitions.py`
+
+- runtime construction and property application
+  Files:
+  - `form_constructor/factory/widget_factory.py`
+
+- document-layer normalization
+  Files:
+  - `form_constructor/document/property_normalizer.py`
+
+- document-layer validation
+  Files:
+  - `form_constructor/document/validator.py`
+
+- import/export support
+  Files:
+  - `form_constructor/conversion/exporter.py`
+  - `form_constructor/conversion/importer.py`
+
+- UI/property editing support
+  Files:
+  - `form_constructor/ui/properties/property_panel.py`
+  - `form_constructor/ui/properties/property_editor_factory.py`
+
+- special-container behavior if applicable
+  Files:
+  - `form_constructor/document/form_document.py`
+  - `form_constructor/canvas/canvas_editor.py`
+  - `form_constructor/canvas/views/`
+
+- tests
+  Files:
+  - `tests/`
+
+
+6. Recommended implementation approach
+
+Phase 1: Define the support contract
+
+Goal:
+- create a compact internal checklist or manifest for every type
+
+Recommended output:
+- a documented support contract in code and/or `README`
+- a helper API in registry that can answer questions like:
+  - is this type creatable
+  - is this type palette-visible
+  - is this type special-container
+  - what support level is expected
+
+
+Phase 2: Add alignment tests for the contract
+
+Goal:
+- fail early if a type is only partially wired into the system
+
+Recommended output:
+- tests that verify agreement between:
+  - registry
+  - factory
+  - normalizer
+  - validator expectations
+  - import/export coverage where declared
+
+This is the most important enforcement layer.
+
+
+Phase 3: Introduce a guided add/remove workflow
+
+Goal:
+- make adding and deleting types follow a known sequence
+
+Recommended output:
+- a project document or internal checklist:
+  - add type
+  - wire runtime
+  - wire normalize/validate
+  - wire import/export
+  - add tests
+  - run alignment tests
+
+- and the reverse checklist for deletion:
+  - remove registry entry
+  - remove runtime support
+  - remove normalize/validate support
+  - remove import/export support
+  - remove tests and special handlers
+  - verify legacy compatibility decision explicitly
+
+
+Phase 4: Optionally move toward descriptor-based support
+
+Goal:
+- reduce the amount of repeated manual wiring in the future
+
+Possible direction:
+- introduce a type-support descriptor or grouped registration helpers
+- not necessarily a big rewrite, but at least a structured place to declare
+  expectations for a type
+
+This phase is optional and should happen only if phases 1-3 already provide
+clear value.
+
+
+7. Recommended work sequence
+
+1. Formalize the support contract and support levels.
+2. Add alignment tests that encode the contract.
+3. Write the add/remove checklist in project docs.
+4. Apply the mechanism to one or two existing types as proof.
+5. Only after that, use the mechanism for the next real catalog expansion.
+
+
+8. High-risk areas for this work
+
+- `form_constructor/registry/builtins.py`
+  Risk:
+  - support metadata changes can affect many layers
+
+- `form_constructor/factory/widget_factory.py`
+  Risk:
+  - runtime support may appear complete while import/export is still partial
+
+- `form_constructor/conversion/exporter.py`
+  Risk:
+  - declared round-trip support must match actual export capability
+
+- `form_constructor/conversion/importer.py`
+  Risk:
+  - importer support often becomes partial first if not guarded
+
+- `tests/`
+  Risk:
+  - if alignment tests are too weak, the mechanism becomes documentation only
+
+
+9. Completion condition
+
+This plan should be considered complete when:
+
+- support expectations for object types are explicit
+- alignment tests can detect partially integrated types
+- adding a new type follows a documented repeatable sequence
+- removing a type follows a documented repeatable sequence
+- the team no longer has to remember the whole support chain from memory
+
+
+10. Bottom line
+
+This plan is about turning object-type support from an implicit manual process
+into an explicit lifecycle mechanism.
+
+If done well, it will make both future catalog growth and future cleanup much
+safer.

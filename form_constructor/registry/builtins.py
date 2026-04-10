@@ -94,7 +94,7 @@ def build_builtin_registry() -> WidgetRegistry:
             allowed_parent_types=container_parent_types,
             allowed_child_types=["*"],
             qt_class_name="QGroupBox",
-            description="Контейнер с заголовком.",
+            description="Контейнер с заголовком и необязательной логикой включения/выключения.",
         )
     )
     registry.register(
@@ -130,7 +130,7 @@ def build_builtin_registry() -> WidgetRegistry:
             ],
             auto_create_children=["TabPage", "TabPage"],
             qt_class_name="QTabWidget",
-            description="Контейнер со вкладками. Реальные дочерние объекты живут внутри TabPage.",
+            description="Контейнер со вкладками. Реальные дочерние объекты размещаются внутри внутренних страниц TabPage.",
         )
     )
     registry.register(
@@ -193,7 +193,7 @@ def build_builtin_registry() -> WidgetRegistry:
             special_actions=["set_splitter_orientation", "set_splitter_sizes"],
             auto_create_children=["SplitterPane", "SplitterPane"],
             qt_class_name="QSplitter",
-            description="Контейнер с двумя внутренними панелями и изменяемым разделителем.",
+            description="Контейнер с двумя внутренними панелями и настраиваемым разделителем.",
         )
     )
     registry.register(
@@ -231,7 +231,7 @@ def build_builtin_registry() -> WidgetRegistry:
             ],
             auto_create_children=["WizardPage", "WizardPage"],
             qt_class_name="QWizard",
-            description="Контейнер мастера с последовательными страницами.",
+            description="Контейнер мастера с последовательными страницами и управляемым текущим шагом.",
         )
     )
     registry.register(
@@ -255,7 +255,7 @@ def build_builtin_registry() -> WidgetRegistry:
             movable=False,
             resizable=False,
             deletable_directly=False,
-            description="Внутренняя страница QTabWidget. Управляется только через контейнер вкладок.",
+            description="Внутренняя страница QTabWidget. Управляется через контейнер вкладок, а не напрямую.",
         )
     )
     registry.register(
@@ -573,10 +573,11 @@ def build_builtin_registry() -> WidgetRegistry:
                 PropertyDefinition("date", "date_string", True, "2026-01-01", "text"),
                 PropertyDefinition("minimum_date", "date_string", True, "1900-01-01", "text"),
                 PropertyDefinition("maximum_date", "date_string", True, "2100-12-31", "text"),
+                PropertyDefinition("display_format", "str", True, "yyyy-MM-dd", "text"),
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QDateEdit",
-            description="Поле даты с нормализованным строковым хранением YYYY-MM-DD.",
+            description="Поле даты с настраиваемым форматом отображения и строковым хранением YYYY-MM-DD.",
         )
     )
     registry.register(
@@ -595,10 +596,11 @@ def build_builtin_registry() -> WidgetRegistry:
                 PropertyDefinition("time", "time_string", True, "12:00:00", "text"),
                 PropertyDefinition("minimum_time", "time_string", True, "00:00:00", "text"),
                 PropertyDefinition("maximum_time", "time_string", True, "23:59:59", "text"),
+                PropertyDefinition("display_format", "str", True, "HH:mm:ss", "text"),
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QTimeEdit",
-            description="Поле времени с нормализованным строковым хранением HH:MM:SS.",
+            description="Поле времени с настраиваемым форматом отображения и строковым хранением HH:MM:SS.",
         )
     )
     registry.register(
@@ -617,10 +619,11 @@ def build_builtin_registry() -> WidgetRegistry:
                 PropertyDefinition("datetime", "datetime_string", True, "2026-01-01 12:00:00", "text"),
                 PropertyDefinition("minimum_datetime", "datetime_string", True, "1900-01-01 00:00:00", "text"),
                 PropertyDefinition("maximum_datetime", "datetime_string", True, "2100-12-31 23:59:59", "text"),
+                PropertyDefinition("display_format", "str", True, "yyyy-MM-dd HH:mm:ss", "text"),
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QDateTimeEdit",
-            description="Поле даты и времени с нормализованным строковым хранением YYYY-MM-DD HH:MM:SS.",
+            description="Поле даты и времени с настраиваемым форматом отображения и строковым хранением YYYY-MM-DD HH:MM:SS.",
         )
     )
     registry.register(
@@ -642,7 +645,7 @@ def build_builtin_registry() -> WidgetRegistry:
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QCalendarWidget",
-            description="Календарный виджет с нормализованным хранением выбранной даты YYYY-MM-DD.",
+            description="Календарный виджет с хранением выбранной даты в формате YYYY-MM-DD.",
         )
     )
     registry.register(

@@ -269,6 +269,7 @@ class WidgetPropertyNormalizer:
         entity.properties["minimum_date"] = format_date_string(minimum_parsed)
         entity.properties["maximum_date"] = format_date_string(maximum_parsed)
         entity.properties["date"] = format_date_string(current_parsed)
+        entity.properties["display_format"] = str(entity.properties.get("display_format", "yyyy-MM-dd")).strip() or "yyyy-MM-dd"
 
     def _normalize_time_edit_properties(
         self,
@@ -301,6 +302,7 @@ class WidgetPropertyNormalizer:
         entity.properties["minimum_time"] = format_time_string(minimum_parsed)
         entity.properties["maximum_time"] = format_time_string(maximum_parsed)
         entity.properties["time"] = format_time_string(current_parsed)
+        entity.properties["display_format"] = str(entity.properties.get("display_format", "HH:mm:ss")).strip() or "HH:mm:ss"
 
     def _normalize_datetime_edit_properties(
         self,
@@ -342,6 +344,10 @@ class WidgetPropertyNormalizer:
         entity.properties["minimum_datetime"] = format_datetime_string(minimum_parsed)
         entity.properties["maximum_datetime"] = format_datetime_string(maximum_parsed)
         entity.properties["datetime"] = format_datetime_string(current_parsed)
+        entity.properties["display_format"] = (
+            str(entity.properties.get("display_format", "yyyy-MM-dd HH:mm:ss")).strip()
+            or "yyyy-MM-dd HH:mm:ss"
+        )
 
     def _normalize_calendar_widget_properties(
         self,

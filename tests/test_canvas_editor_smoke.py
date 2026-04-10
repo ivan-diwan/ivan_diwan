@@ -162,6 +162,34 @@ class CanvasEditorSmokeTests(unittest.TestCase):
         self.assertEqual(updated.geometry["x"], 60)
         self.assertEqual(updated.geometry["y"], 50)
 
+    def test_selecting_internal_special_entities_highlights_visible_container(self) -> None:
+        tab_widget = self.controller.create_entity_from_drop("QTabWidget", 20, 20, "form_root")
+        tab_page = self.controller.active_document.get_tab_pages(tab_widget.id)[0]
+
+        scroll_area = self.controller.create_entity_from_drop("QScrollArea", 20, 220, "form_root")
+        scroll_content = self.controller.active_document.get_scroll_content(scroll_area.id)
+
+        splitter = self.controller.create_entity_from_drop("QSplitter", 420, 20, "form_root")
+        splitter_pane = self.controller.active_document.get_splitter_panes(splitter.id)[0]
+
+        wizard = self.controller.create_entity_from_drop("QWizard", 420, 260, "form_root")
+        wizard_page = self.controller.active_document.get_wizard_pages(wizard.id)[0]
+        self._process_events()
+
+        cases = [
+            (tab_page.id, tab_widget.id),
+            (scroll_content.id, scroll_area.id),
+            (splitter_pane.id, splitter.id),
+            (wizard_page.id, wizard.id),
+        ]
+
+        for selected_id, expected_visible_id in cases:
+            with self.subTest(selected_id=selected_id):
+                self.controller.select_entity(selected_id)
+                self._process_events()
+                self.assertEqual(self.canvas._selected_entity_id, expected_visible_id)
+                self.assertTrue(self.canvas._item_views_by_id[expected_visible_id].is_selected)
+
     def _expected_canvas_entity_ids(self) -> set[str]:
         document = self.controller.active_document
         return {

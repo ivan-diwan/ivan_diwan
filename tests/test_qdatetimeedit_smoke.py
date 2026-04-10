@@ -49,17 +49,20 @@ class QDateTimeEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_datetime", "2020-01-01 00:00:00")
         self.controller.update_entity_property(entity.id, "maximum_datetime", "2030-12-31 23:59:59")
         self.controller.update_entity_property(entity.id, "datetime", "2026-04-08 09:30:00")
+        self.controller.update_entity_property(entity.id, "display_format", "yyyy-MM-dd HH:mm")
         self._process_events()
 
         updated = self.controller.active_document.get_entity(entity.id)
         self.assertEqual(updated.properties["minimum_datetime"], "2020-01-01 00:00:00")
         self.assertEqual(updated.properties["maximum_datetime"], "2030-12-31 23:59:59")
         self.assertEqual(updated.properties["datetime"], "2026-04-08 09:30:00")
+        self.assertEqual(updated.properties["display_format"], "yyyy-MM-dd HH:mm")
 
         datetime_widget = self.window._form_window._canvas._item_views_by_id[entity.id].inner_widget
         self.assertEqual(datetime_widget.minimumDateTime().toString("yyyy-MM-dd HH:mm:ss"), "2020-01-01 00:00:00")
         self.assertEqual(datetime_widget.maximumDateTime().toString("yyyy-MM-dd HH:mm:ss"), "2030-12-31 23:59:59")
         self.assertEqual(datetime_widget.dateTime().toString("yyyy-MM-dd HH:mm:ss"), "2026-04-08 09:30:00")
+        self.assertEqual(datetime_widget.displayFormat(), "yyyy-MM-dd HH:mm")
         self.assertIn('"type": "QDateTimeEdit"', self.controller.get_snapshot())
 
     def test_qdatetimeedit_range_normalization_keeps_document_valid(self) -> None:
@@ -90,6 +93,7 @@ class QDateTimeEditSmokeTests(unittest.TestCase):
         self.controller.update_entity_property(entity.id, "minimum_datetime", "2020-01-01 00:00:00")
         self.controller.update_entity_property(entity.id, "maximum_datetime", "2030-12-31 23:59:59")
         self.controller.update_entity_property(entity.id, "datetime", "2026-04-08 09:30:00")
+        self.controller.update_entity_property(entity.id, "display_format", "yyyy-MM-dd HH:mm")
         before_payload = self.serializer.serialize_to_dict(self.controller.active_document)
 
         with managed_test_paths(
@@ -116,6 +120,7 @@ class QDateTimeEditSmokeTests(unittest.TestCase):
                 ".setDateTime(QDateTime(QDate(2026, 4, 8), QTime(9, 30, 0)))",
                 python_source,
             )
+            self.assertIn(".setDisplayFormat('yyyy-MM-dd HH:mm')", python_source)
 
             self.controller.export_document_to_python(str(py_path))
             self.controller.load_document(str(py_path))
@@ -145,7 +150,7 @@ class QDateTimeEditSmokeTests(unittest.TestCase):
         self.assertEqual(self.controller.active_document.get_entity(datetime_in_splitter.id).parent_id, splitter_pane.id)
         self.controller.validate_active_document()
 
-    def test_qdatetimeedit_import_rejects_display_format_for_current_version(self) -> None:
+    def test_qdatetimeedit_import_preserves_display_format(self) -> None:
         importer = PythonImporter(self.registry)
         source = """
 import sys
@@ -168,8 +173,9 @@ class GeneratedWidget(QWidget):
         self.datetime_edit_1.setDateTime(QDateTime(QDate(2026, 4, 8), QTime(9, 30, 0)))
         self.datetime_edit_1.setDisplayFormat("yyyy-MM-dd HH:mm")
 """
-        with self.assertRaisesRegex(ValueError, "display format import is not supported"):
-            importer.import_from_code(source)
+        document = importer.import_from_code(source)
+        entity = document.get_root_entities()[0]
+        self.assertEqual(entity.properties["display_format"], "yyyy-MM-dd HH:mm")
 
     @classmethod
     def _process_events(cls) -> None:
