@@ -85,7 +85,12 @@ class PythonImporter:
 
     def import_from_file(self, path: str) -> FormDocument:
         code = Path(path).read_text(encoding="utf-8")
-        return self.import_from_code(code)
+        try:
+            return self.import_from_code(code)
+        except ImportDiagnosticError as error:
+            if "filename" not in error.diagnostic.details:
+                error.diagnostic.details["filename"] = str(path)
+            raise
 
     def import_from_code(self, code: str) -> FormDocument:
         self._last_diagnostic = None

@@ -109,6 +109,61 @@ class FeedbackLayerSmokeTests(unittest.TestCase):
             self.assertFalse(fake_event.accepted)
             self.assertIn("Drop rejected", self.window._message_log.toPlainText())
 
+    def test_export_diagnostic_errors_are_rendered_with_stage_in_ui(self) -> None:
+        self.controller.new_document(width=800, height=600)
+        self.controller.create_entity_from_drop("QPushButton", 20, 20, "form_root")
+        self._process_events()
+
+        with managed_test_paths("tests\\_tmp_feedback_invalid_export.py") as (target_path,):
+            with patch(
+                "form_constructor.ui.main_editor.main_editor_window.QFileDialog.getSaveFileName",
+                return_value=(str(target_path), "Python Files (*.py)"),
+            ):
+                with patch.object(
+                    self.controller._python_exporter._export_validator,
+                    "validate_python_syntax",
+                    side_effect=SyntaxError("broken export"),
+                ):
+                    self.window._export_python()
+
+            self._process_events()
+            message_log = self.window._message_log.toPlainText()
+            self.assertIn("broken export", message_log)
+            self.assertIn("stage: export_to_file", message_log)
+            self.assertIn("[ERROR]", message_log)
+
+    def test_import_diagnostic_errors_include_filename_and_stage_in_ui(self) -> None:
+        code = """
+from PySide6.QtWidgets import QApplication, QTextEdit, QWidget
+
+class GeneratedWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.setObjectName("form_root")
+        self.resize(400, 300)
+        self.editor_1 = QTextEdit(self)
+        self.editor_1.setObjectName("editor_1")
+        self.editor_1.setGeometry(10, 10, 100, 80)
+        self.editor_1.setHtml("<b>Broken</b>")
+"""
+        with managed_test_paths("tests\\_tmp_feedback_import_diagnostic.py") as (source_path,):
+            source_path.write_text(code, encoding="utf-8")
+            with patch(
+                "form_constructor.ui.main_editor.main_editor_window.QFileDialog.getOpenFileName",
+                return_value=(str(source_path), "Python Files (*.py)"),
+            ):
+                self.window._load_document()
+
+            self._process_events()
+            message_log = self.window._message_log.toPlainText()
+            self.assertIn("unsupported case", message_log)
+            self.assertIn("stage: apply_entity_call", message_log)
+            self.assertIn(f"filename: {source_path}", message_log)
+            self.assertIn("[ERROR]", message_log)
+
     @classmethod
     def _process_events(cls) -> None:
         cls._app.processEvents()

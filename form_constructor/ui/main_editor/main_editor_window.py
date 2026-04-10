@@ -140,7 +140,7 @@ class MainEditorWindow(QMainWindow):
                 height=max(240, screen_geometry.height() - frame_height_extra),
             )
         except Exception as error:
-            self._show_error_message(str(error))
+            self._show_error_message(self._format_exception_message(error))
 
     def _save_document(self) -> None:
         if self._controller.active_document is None:
@@ -159,7 +159,7 @@ class MainEditorWindow(QMainWindow):
         try:
             self._controller.save_document_to_json(target_path)
         except Exception as error:
-            self._show_error_message(str(error))
+            self._show_error_message(self._format_exception_message(error))
         self._update_toolbar_state()
 
     def _load_document(self) -> None:
@@ -174,7 +174,7 @@ class MainEditorWindow(QMainWindow):
         try:
             self._controller.load_document(source_path)
         except Exception as error:
-            self._show_error_message(str(error))
+            self._show_error_message(self._format_exception_message(error))
         self._update_toolbar_state()
 
     def _export_python(self) -> None:
@@ -192,7 +192,7 @@ class MainEditorWindow(QMainWindow):
         try:
             self._controller.export_document_to_python(target_path)
         except Exception as error:
-            self._show_error_message(str(error))
+            self._show_error_message(self._format_exception_message(error))
 
     def _open_form_window(self, document: FormDocument) -> None:
         if self._form_window is not None:
@@ -282,6 +282,54 @@ class MainEditorWindow(QMainWindow):
             self._message_log.setPlainText(f"{existing}\n{next_line}")
         else:
             self._message_log.setPlainText(next_line)
+
+    def _format_exception_message(self, error: Exception) -> str:
+        diagnostic = getattr(error, "diagnostic", None)
+        if diagnostic is None:
+            return str(error)
+
+        return self._format_diagnostic_message(diagnostic, fallback_message=str(error))
+
+    def _format_diagnostic_message(self, diagnostic, *, fallback_message: str) -> str:
+        details = getattr(diagnostic, "details", {})
+        if not isinstance(details, dict):
+            details = {}
+
+        message = str(getattr(diagnostic, "message", "")).strip() or fallback_message
+        parts = [message]
+
+        filename = details.get("filename")
+        if filename:
+            parts.append(f"filename: {filename}")
+
+        line = getattr(diagnostic, "line", None)
+        if line is not None:
+            parts.append(f"line {line}")
+
+        pattern = getattr(diagnostic, "pattern", None)
+        if pattern:
+            parts.append(f"pattern: {pattern}")
+
+        entity_ref = getattr(diagnostic, "entity_ref", None)
+        if entity_ref:
+            parts.append(f"entity_ref: {entity_ref}")
+
+        entity_id = getattr(diagnostic, "entity_id", None)
+        if entity_id:
+            parts.append(f"entity_id: {entity_id}")
+
+        entity_type = getattr(diagnostic, "entity_type", None)
+        if entity_type:
+            parts.append(f"entity_type: {entity_type}")
+
+        if bool(getattr(diagnostic, "unsupported", False)):
+            parts.append("unsupported case")
+
+        stage = getattr(diagnostic, "stage", None)
+        if stage:
+            parts.append(f"stage: {stage}")
+
+        return " | ".join(str(part) for part in parts if str(part).strip())
 
     def _current_screen_geometry(self) -> QRect:
         screen = self.screen()
