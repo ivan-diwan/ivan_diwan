@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
-import re
-
 from PySide6.QtCore import QObject, Signal
 
 from form_constructor.controller.editor_state import EditorState
-from form_constructor.conversion.exporter import PythonExporter
-from form_constructor.conversion.importer import PythonImporter
+from form_constructor.controller.document_io_service import DocumentIOService
 from form_constructor.document.form_document import FormDocument
 from form_constructor.document.models import FormRootModel
 from form_constructor.document.validator import DocumentValidator
 from form_constructor.registry.widget_registry import WidgetRegistry
-from form_constructor.serialization.form_serializer import FormSerializer
 
 
 class DocumentController(QObject):
@@ -31,9 +26,10 @@ class DocumentController(QObject):
         super().__init__()
         self._widget_registry = widget_registry
         self._validator = DocumentValidator()
-        self._serializer = FormSerializer(widget_registry=widget_registry, validator=self._validator)
-        self._python_exporter = PythonExporter()
-        self._python_importer = PythonImporter(widget_registry=widget_registry, validator=self._validator)
+        self._document_io = DocumentIOService(widget_registry=widget_registry, validator=self._validator)
+        self._serializer = self._document_io.serializer
+        self._python_exporter = self._document_io.python_exporter
+        self._python_importer = self._document_io.python_importer
         self._editor_state = EditorState()
         self._active_document: FormDocument | None = None
 
@@ -74,30 +70,49 @@ class DocumentController(QObject):
         return self.create_new_document(width=width, height=height)
 
     def load_document_from_json(self, payload: str) -> FormDocument:
-        document = self._serializer.deserialize_from_json(payload)
-        self._activate_document(document, current_json_path=None)
-        self.notify_status("Form loaded from JSON.")
-        return document
+        document = self._document_io.load_json_payload(payload)
+        return self._activate_loaded_document(
+            document,
+            current_json_path=None,
+            current_python_path=None,
+            status_message="Form loaded from JSON.",
+        )
 
     def load_document_from_json_path(self, path: str) -> FormDocument:
-        document = self._serializer.load_json(path)
-        self._activate_document(document, current_json_path=path)
-        self.notify_status("Form loaded.")
-        return document
+        document = self._document_io.load_json_path(path)
+        return self._activate_loaded_document(
+            document,
+            current_json_path=path,
+            current_python_path=None,
+            status_message="Form loaded.",
+        )
 
     def load_document_from_python(self, path: str) -> FormDocument:
-        document = self._python_importer.import_from_file(path)
-        self._activate_document(document, current_json_path=None)
-        self._editor_state.current_python_path = path
-        self.notify_status("Python imported.")
-        return document
+        document = self._document_io.load_python_path(path)
+        return self._activate_loaded_document(
+            document,
+            current_json_path=None,
+            current_python_path=path,
+            status_message="Python imported.",
+        )
 
     def load_document(self, path: str) -> FormDocument:
+        document = self._document_io.load_path(path)
         lowered = str(path).lower()
         if lowered.endswith(".json"):
-            return self.load_document_from_json_path(path)
+            return self._activate_loaded_document(
+                document,
+                current_json_path=path,
+                current_python_path=None,
+                status_message="Form loaded.",
+            )
         if lowered.endswith(".py"):
-            return self.load_document_from_python(path)
+            return self._activate_loaded_document(
+                document,
+                current_json_path=None,
+                current_python_path=path,
+                status_message="Python imported.",
+            )
         raise ValueError(f"Unsupported document format for '{path}'.")
 
     def save_document_to_json(self, path: str | None = None) -> str:
@@ -105,7 +120,7 @@ class DocumentController(QObject):
         target_path = path or self._editor_state.current_json_path
         if not target_path:
             raise ValueError("No target JSON path provided.")
-        self._serializer.save_json(document, target_path)
+        self._document_io.save_json(document, target_path)
         self._editor_state.current_json_path = target_path
         document.clear_dirty()
         self.flush_json_snapshot()
@@ -114,45 +129,26 @@ class DocumentController(QObject):
 
     def export_document_to_python(self, path: str) -> str:
         document = self._require_document()
-        self._validator.validate_document(document)
         self.flush_json_snapshot()
-        target_path = self._normalize_python_export_path(path)
-        self._python_exporter.export_to_file(document, target_path)
+        target_path = self._document_io.export_python(document, path)
         self._editor_state.current_python_path = target_path
         self.notify_status("Python exported.")
         return target_path
 
     def export_document_to_python_source(self) -> str:
         document = self._require_document()
-        self._validator.validate_document(document)
         self.flush_json_snapshot()
-        self._python_exporter.validate_export(document)
-        return self._python_exporter.export(document)
+        return self._document_io.export_python_source(document)
 
     def save_python(self, path: str) -> str:
         return self.export_document_to_python(path)
 
     def suggest_python_export_path(self) -> str:
-        if self._editor_state.current_python_path:
-            return self._editor_state.current_python_path
-        if self._editor_state.current_json_path:
-            return str(Path(self._editor_state.current_json_path).with_suffix(".py"))
-        if self._active_document is None:
-            return ""
-        base_name = self._python_export_base_name(self._active_document.form_root.name)
-        return f"{base_name}.py"
-
-    @staticmethod
-    def _python_export_base_name(value: str) -> str:
-        normalized = re.sub(r"\W+", "_", str(value).strip().lower()).strip("_")
-        return normalized or "generated_form"
-
-    @staticmethod
-    def _normalize_python_export_path(path: str) -> str:
-        normalized_path = Path(path)
-        if normalized_path.suffix:
-            return str(normalized_path)
-        return str(normalized_path.with_suffix(".py"))
+        return self._document_io.suggest_python_export_path(
+            current_python_path=self._editor_state.current_python_path,
+            current_json_path=self._editor_state.current_json_path,
+            active_document=self._active_document,
+        )
 
     def close_document(self) -> None:
         self._active_document = None
@@ -191,7 +187,7 @@ class DocumentController(QObject):
     def get_snapshot(self) -> str:
         if self._active_document is None:
             return ""
-        return self._serializer.serialize_to_json(self._active_document)
+        return self._document_io.serialize_snapshot(self._active_document)
 
     def select_entity(self, entity_id: str | None) -> None:
         self._editor_state.selected_entity_id = entity_id
@@ -240,22 +236,12 @@ class DocumentController(QObject):
     ) -> None:
         document = self._require_document()
         document.reparent_entity(entity_id, new_parent_id, x=x, y=y)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def set_entity_order(self, entity_id: str, new_order: int) -> None:
         document = self._require_document()
         document.set_order(entity_id, new_order)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def validate_active_document(self) -> None:
         document = self._require_document()
@@ -264,42 +250,22 @@ class DocumentController(QObject):
     def rename_entity(self, entity_id: str, new_name: str) -> None:
         document = self._require_document()
         document.rename_entity(entity_id, new_name)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def update_entity_property(self, entity_id: str, property_name: str, value: object) -> None:
         document = self._require_document()
         document.update_property(entity_id, property_name, value)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def move_entity(self, entity_id: str, x: int, y: int) -> None:
         document = self._require_document()
         document.move_entity(entity_id, x, y)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def resize_entity(self, entity_id: str, width: int, height: int) -> None:
         document = self._require_document()
         document.resize_entity(entity_id, width, height)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def update_entity_geometry(
         self,
@@ -311,12 +277,7 @@ class DocumentController(QObject):
     ) -> None:
         document = self._require_document()
         document.update_geometry(entity_id, x, y, width, height)
-        entity = document.get_entity(entity_id)
-        self._commit_document_change(
-            document,
-            updated_entity=entity,
-            selected_entity_id=entity_id,
-        )
+        self._commit_updated_entity(document, entity_id)
 
     def delete_entity(self, entity_id: str) -> None:
         document = self._require_document()
@@ -340,12 +301,7 @@ class DocumentController(QObject):
     def add_tab_page(self, tab_widget_id: str) -> None:
         document = self._require_document()
         document.add_tab_page(tab_widget_id)
-        tab_widget = document.get_entity(tab_widget_id)
-        self._commit_document_change(
-            document,
-            updated_entity=tab_widget,
-            selected_entity_id=tab_widget_id,
-        )
+        self._commit_updated_entity(document, tab_widget_id)
 
     def get_scroll_content(self, scroll_area_id: str) -> object:
         document = self._require_document()
@@ -354,12 +310,7 @@ class DocumentController(QObject):
     def remove_tab_page(self, tab_widget_id: str, tab_page_id: str) -> None:
         document = self._require_document()
         document.remove_tab_page(tab_widget_id, tab_page_id)
-        tab_widget = document.get_entity(tab_widget_id)
-        self._commit_document_change(
-            document,
-            updated_entity=tab_widget,
-            selected_entity_id=tab_widget_id,
-        )
+        self._commit_updated_entity(document, tab_widget_id)
 
     def rename_tab_page(self, tab_page_id: str, new_title: str) -> None:
         document = self._require_document()
@@ -368,62 +319,36 @@ class DocumentController(QObject):
         if tab_page is None:
             return
         tab_widget_id = tab_page.parent_id
-        tab_widget = document.get_entity(tab_widget_id)
-        self._commit_document_change(
+        self._commit_updated_parent_or_entity(
             document,
-            updated_entity=tab_widget if tab_widget is not None else tab_page,
-            selected_entity_id=tab_widget_id if tab_widget is not None else tab_page_id,
+            parent_id=tab_widget_id,
+            fallback_entity_id=tab_page_id,
         )
 
     def set_current_tab(self, tab_widget_id: str, index: int) -> None:
         document = self._require_document()
         document.set_current_tab(tab_widget_id, index)
-        tab_widget = document.get_entity(tab_widget_id)
-        self._commit_document_change(
-            document,
-            updated_entity=tab_widget,
-            selected_entity_id=tab_widget_id,
-        )
+        self._commit_updated_entity(document, tab_widget_id)
 
     def set_splitter_orientation(self, splitter_id: str, orientation: str) -> None:
         document = self._require_document()
         document.set_splitter_orientation(splitter_id, orientation)
-        splitter = document.get_entity(splitter_id)
-        self._commit_document_change(
-            document,
-            updated_entity=splitter,
-            selected_entity_id=splitter_id,
-        )
+        self._commit_updated_entity(document, splitter_id)
 
     def set_splitter_sizes(self, splitter_id: str, sizes: list[int]) -> None:
         document = self._require_document()
         document.set_splitter_sizes(splitter_id, sizes)
-        splitter = document.get_entity(splitter_id)
-        self._commit_document_change(
-            document,
-            updated_entity=splitter,
-            selected_entity_id=splitter_id,
-        )
+        self._commit_updated_entity(document, splitter_id)
 
     def add_wizard_page(self, wizard_id: str) -> None:
         document = self._require_document()
         document.add_wizard_page(wizard_id)
-        wizard = document.get_entity(wizard_id)
-        self._commit_document_change(
-            document,
-            updated_entity=wizard,
-            selected_entity_id=wizard_id,
-        )
+        self._commit_updated_entity(document, wizard_id)
 
     def remove_wizard_page(self, wizard_id: str, wizard_page_id: str) -> None:
         document = self._require_document()
         document.remove_wizard_page(wizard_id, wizard_page_id)
-        wizard = document.get_entity(wizard_id)
-        self._commit_document_change(
-            document,
-            updated_entity=wizard,
-            selected_entity_id=wizard_id,
-        )
+        self._commit_updated_entity(document, wizard_id)
 
     def rename_wizard_page(
         self,
@@ -437,26 +362,20 @@ class DocumentController(QObject):
         if page is None:
             return
         wizard_id = page.parent_id
-        wizard = document.get_entity(wizard_id)
-        self._commit_document_change(
+        self._commit_updated_parent_or_entity(
             document,
-            updated_entity=wizard if wizard is not None else page,
-            selected_entity_id=wizard_id if wizard is not None else wizard_page_id,
+            parent_id=wizard_id,
+            fallback_entity_id=wizard_page_id,
         )
 
     def set_current_wizard_page(self, wizard_id: str, index: int) -> None:
         document = self._require_document()
         document.set_current_wizard_page(wizard_id, index)
-        wizard = document.get_entity(wizard_id)
-        self._commit_document_change(
-            document,
-            updated_entity=wizard,
-            selected_entity_id=wizard_id,
-        )
+        self._commit_updated_entity(document, wizard_id)
 
     def flush_json_snapshot(self) -> None:
         if self._active_document is not None:
-            self.snapshot_changed.emit(self._serializer.serialize_to_json(self._active_document))
+            self.snapshot_changed.emit(self._document_io.serialize_snapshot(self._active_document))
 
     def _create_entity_via_document(
         self,
@@ -493,6 +412,19 @@ class DocumentController(QObject):
         self.selection_changed.emit(None)
         self.flush_json_snapshot()
 
+    def _activate_loaded_document(
+        self,
+        document: FormDocument,
+        *,
+        current_json_path: str | None,
+        current_python_path: str | None,
+        status_message: str,
+    ) -> FormDocument:
+        self._activate_document(document, current_json_path=current_json_path)
+        self._editor_state.current_python_path = current_python_path
+        self.notify_status(status_message)
+        return document
+
     def _commit_document_change(
         self,
         document: FormDocument,
@@ -517,6 +449,27 @@ class DocumentController(QObject):
             return
         if selected_entity_id is not None:
             self.select_entity(selected_entity_id)
+
+    def _commit_updated_entity(self, document: FormDocument, entity_id: str) -> None:
+        self._commit_document_change(
+            document,
+            updated_entity=document.get_entity(entity_id),
+            selected_entity_id=entity_id,
+        )
+
+    def _commit_updated_parent_or_entity(
+        self,
+        document: FormDocument,
+        *,
+        parent_id: str,
+        fallback_entity_id: str,
+    ) -> None:
+        parent_entity = document.get_entity(parent_id)
+        self._commit_document_change(
+            document,
+            updated_entity=parent_entity if parent_entity is not None else document.get_entity(fallback_entity_id),
+            selected_entity_id=parent_id if parent_entity is not None else fallback_entity_id,
+        )
 
     def _require_document(self) -> FormDocument:
         if self._active_document is None:
