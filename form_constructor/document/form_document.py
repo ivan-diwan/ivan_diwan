@@ -131,16 +131,19 @@ class FormDocument:
         geometry: dict | None = None,
         name: str | None = None,
     ) -> EntityModel:
-        tab_widget = self.create_entity(
+        tab_widget = self._create_special_entity(
             type_name="QTabWidget",
             parent_id=parent_id,
             geometry=geometry,
             properties={"current_index": 0, "tabs_closable": False},
             name=name,
         )
-        self.add_tab_page(tab_widget.id, "Tab 1")
-        self.add_tab_page(tab_widget.id, "Tab 2")
-        self.set_current_tab(tab_widget.id, 0)
+        self._initialize_indexed_children(
+            container_id=tab_widget.id,
+            titles=["Tab 1", "Tab 2"],
+            add_child=lambda container_id, title: self.add_tab_page(container_id, title),
+            set_current=lambda container_id, index: self.set_current_tab(container_id, index),
+        )
         self.mark_dirty()
         return tab_widget
 
@@ -150,7 +153,7 @@ class FormDocument:
         geometry: dict | None = None,
         name: str | None = None,
     ) -> EntityModel:
-        scroll_area = self.create_entity(
+        scroll_area = self._create_special_entity(
             type_name="QScrollArea",
             parent_id=parent_id,
             geometry=geometry,
@@ -178,15 +181,14 @@ class FormDocument:
         orientation: str = "horizontal",
         name: str | None = None,
     ) -> EntityModel:
-        splitter = self.create_entity(
+        splitter = self._create_special_entity(
             type_name="QSplitter",
             parent_id=parent_id,
             geometry=geometry,
             properties={"orientation": orientation, "sizes": [1, 1]},
             name=name,
         )
-        self.create_entity(type_name="SplitterPane", parent_id=splitter.id)
-        self.create_entity(type_name="SplitterPane", parent_id=splitter.id)
+        self._create_internal_children(parent_id=splitter.id, child_types=["SplitterPane", "SplitterPane"])
         self._sync_internal_children(splitter)
         self.mark_dirty()
         return splitter
@@ -197,24 +199,19 @@ class FormDocument:
         geometry: dict | None = None,
         name: str | None = None,
     ) -> EntityModel:
-        normalized_geometry = geometry
-        if geometry is not None:
-            min_width, min_height = self._normalize_size_constraints("QWizard", geometry["width"], geometry["height"])
-            normalized_geometry = {
-                **geometry,
-                "width": min_width,
-                "height": min_height,
-            }
-        wizard = self.create_entity(
+        wizard = self._create_special_entity(
             type_name="QWizard",
             parent_id=parent_id,
-            geometry=normalized_geometry,
+            geometry=geometry,
             properties={"window_title": "Wizard", "current_index": 0},
             name=name,
         )
-        self.add_wizard_page(wizard.id, "Page 1", "")
-        self.add_wizard_page(wizard.id, "Page 2", "")
-        self.set_current_wizard_page(wizard.id, 0)
+        self._initialize_indexed_children(
+            container_id=wizard.id,
+            titles=["Page 1", "Page 2"],
+            add_child=lambda container_id, title: self.add_wizard_page(container_id, title, ""),
+            set_current=lambda container_id, index: self.set_current_wizard_page(container_id, index),
+        )
         self.mark_dirty()
         return wizard
 
@@ -231,26 +228,14 @@ class FormDocument:
         return tab_page
 
     def remove_tab_page(self, tab_widget_id: str, tab_page_id: str) -> None:
-        tab_pages = self.get_tab_pages(tab_widget_id)
-        if len(tab_pages) <= 1:
-            raise ValueError("QTabWidget must keep at least one TabPage.")
-        if tab_page_id not in {page.id for page in tab_pages}:
-            raise ValueError(f"TabPage '{tab_page_id}' does not belong to '{tab_widget_id}'.")
-
-        tab_widget = self._require_entity(tab_widget_id)
-        current_index = int(tab_widget.properties.get("current_index", 0))
-        remove_index = next(index for index, page in enumerate(tab_pages) if page.id == tab_page_id)
-        self.delete_subtree(tab_page_id)
-
-        remaining_pages = self.get_tab_pages(tab_widget_id)
-        for index, page in enumerate(remaining_pages):
-            page.order = index
-
-        if current_index >= len(remaining_pages):
-            current_index = len(remaining_pages) - 1
-        elif remove_index < current_index:
-            current_index -= 1
-        self.set_current_tab(tab_widget_id, max(0, current_index))
+        self._remove_indexed_child(
+            container_id=tab_widget_id,
+            child_id=tab_page_id,
+            get_children=self.get_tab_pages,
+            current_index_property="current_index",
+            min_children_error="QTabWidget must keep at least one TabPage.",
+            wrong_parent_error_template="TabPage '{child_id}' does not belong to '{container_id}'.",
+        )
         self.mark_dirty()
 
     def rename_tab_page(self, tab_page_id: str, new_title: str) -> None:
@@ -261,13 +246,13 @@ class FormDocument:
         self.mark_dirty()
 
     def set_current_tab(self, tab_widget_id: str, index: int) -> None:
-        tab_widget = self._require_entity(tab_widget_id)
-        if tab_widget.type != "QTabWidget":
-            raise ValueError(f"Entity '{tab_widget_id}' is not a QTabWidget.")
-        tab_pages = self.get_tab_pages(tab_widget_id)
-        if not 0 <= int(index) < len(tab_pages):
-            raise ValueError("Tab index is out of range.")
-        tab_widget.properties["current_index"] = int(index)
+        self._set_current_indexed_child(
+            container_id=tab_widget_id,
+            index=index,
+            expected_type="QTabWidget",
+            get_children=self.get_tab_pages,
+            out_of_range_error="Tab index is out of range.",
+        )
         self.mark_dirty()
 
     def set_splitter_orientation(self, splitter_id: str, orientation: str) -> None:
@@ -312,23 +297,14 @@ class FormDocument:
         return page
 
     def remove_wizard_page(self, wizard_id: str, wizard_page_id: str) -> None:
-        wizard_pages = self.get_wizard_pages(wizard_id)
-        if len(wizard_pages) <= 1:
-            raise ValueError("QWizard must keep at least one WizardPage.")
-        if wizard_page_id not in {page.id for page in wizard_pages}:
-            raise ValueError(f"WizardPage '{wizard_page_id}' does not belong to '{wizard_id}'.")
-        wizard = self._require_entity(wizard_id)
-        current_index = int(wizard.properties.get("current_index", 0))
-        remove_index = next(index for index, page in enumerate(wizard_pages) if page.id == wizard_page_id)
-        self.delete_subtree(wizard_page_id)
-        remaining_pages = self.get_wizard_pages(wizard_id)
-        for index, page in enumerate(remaining_pages):
-            page.order = index
-        if current_index >= len(remaining_pages):
-            current_index = len(remaining_pages) - 1
-        elif remove_index < current_index:
-            current_index -= 1
-        self.set_current_wizard_page(wizard_id, max(0, current_index))
+        self._remove_indexed_child(
+            container_id=wizard_id,
+            child_id=wizard_page_id,
+            get_children=self.get_wizard_pages,
+            current_index_property="current_index",
+            min_children_error="QWizard must keep at least one WizardPage.",
+            wrong_parent_error_template="WizardPage '{child_id}' does not belong to '{container_id}'.",
+        )
         self.mark_dirty()
 
     def rename_wizard_page(
@@ -346,13 +322,13 @@ class FormDocument:
         self.mark_dirty()
 
     def set_current_wizard_page(self, wizard_id: str, index: int) -> None:
-        wizard = self._require_entity(wizard_id)
-        if wizard.type != "QWizard":
-            raise ValueError(f"Entity '{wizard_id}' is not a QWizard.")
-        pages = self.get_wizard_pages(wizard_id)
-        if not 0 <= int(index) < len(pages):
-            raise ValueError("Wizard page index is out of range.")
-        wizard.properties["current_index"] = int(index)
+        self._set_current_indexed_child(
+            container_id=wizard_id,
+            index=index,
+            expected_type="QWizard",
+            get_children=self.get_wizard_pages,
+            out_of_range_error="Wizard page index is out of range.",
+        )
         self.mark_dirty()
 
     def rename_entity(self, entity_id: str, new_name: str) -> None:
@@ -473,25 +449,130 @@ class FormDocument:
             panes = self.get_splitter_panes(entity.id)
             if len(panes) != 2:
                 return
-            orientation = str(entity.properties.get("orientation", "horizontal")).lower()
-            sizes = entity.properties.get("sizes", [1, 1])
-            if not isinstance(sizes, list) or len(sizes) != 2:
-                sizes = [1, 1]
-            first_size = max(1, int(sizes[0]))
-            second_size = max(1, int(sizes[1]))
-            total = first_size + second_size
-            width = max(1, int(entity.geometry["width"]))
-            height = max(1, int(entity.geometry["height"]))
-            if orientation == "vertical":
-                first_height = max(1, round(height * first_size / total))
-                second_height = max(1, height - first_height)
-                panes[0].geometry = make_geometry(0, 0, width, first_height)
-                panes[1].geometry = make_geometry(0, first_height, width, second_height)
-            else:
-                first_width = max(1, round(width * first_size / total))
-                second_width = max(1, width - first_width)
-                panes[0].geometry = make_geometry(0, 0, first_width, height)
-                panes[1].geometry = make_geometry(first_width, 0, second_width, height)
+            panes[0].geometry, panes[1].geometry = self._calculate_splitter_pane_geometries(entity)
+
+    def _set_current_indexed_child(
+        self,
+        *,
+        container_id: str,
+        index: int,
+        expected_type: str,
+        get_children,
+        out_of_range_error: str,
+    ) -> None:
+        container = self._require_entity(container_id)
+        if container.type != expected_type:
+            raise ValueError(f"Entity '{container_id}' is not a {expected_type}.")
+        children = get_children(container_id)
+        normalized_index = int(index)
+        if not 0 <= normalized_index < len(children):
+            raise ValueError(out_of_range_error)
+        container.properties["current_index"] = normalized_index
+
+    def _create_special_entity(
+        self,
+        *,
+        type_name: str,
+        parent_id: str,
+        geometry: dict | None,
+        properties: dict,
+        name: str | None,
+    ) -> EntityModel:
+        return self.create_entity(
+            type_name=type_name,
+            parent_id=parent_id,
+            geometry=self._normalize_creation_geometry(type_name, geometry),
+            properties=properties,
+            name=name,
+        )
+
+    def _normalize_creation_geometry(self, type_name: str, geometry: dict | None) -> dict | None:
+        if geometry is None:
+            return None
+        if type_name != "QWizard":
+            return geometry
+        min_width, min_height = self._normalize_size_constraints(type_name, geometry["width"], geometry["height"])
+        return {
+            **geometry,
+            "width": min_width,
+            "height": min_height,
+        }
+
+    def _create_internal_children(self, *, parent_id: str, child_types: list[str]) -> None:
+        for child_type in child_types:
+            self.create_entity(type_name=child_type, parent_id=parent_id)
+
+    def _initialize_indexed_children(
+        self,
+        *,
+        container_id: str,
+        titles: list[str],
+        add_child,
+        set_current,
+    ) -> None:
+        for title in titles:
+            add_child(container_id, title)
+        set_current(container_id, 0)
+
+    def _calculate_splitter_pane_geometries(self, splitter: EntityModel) -> tuple[dict, dict]:
+        orientation = str(splitter.properties.get("orientation", "horizontal")).lower()
+        sizes = splitter.properties.get("sizes", [1, 1])
+        if not isinstance(sizes, list) or len(sizes) != 2:
+            sizes = [1, 1]
+
+        first_size = max(1, int(sizes[0]))
+        second_size = max(1, int(sizes[1]))
+        total = first_size + second_size
+        width = max(1, int(splitter.geometry["width"]))
+        height = max(1, int(splitter.geometry["height"]))
+
+        if orientation == "vertical":
+            first_height = max(1, round(height * first_size / total))
+            second_height = max(1, height - first_height)
+            return (
+                make_geometry(0, 0, width, first_height),
+                make_geometry(0, first_height, width, second_height),
+            )
+
+        first_width = max(1, round(width * first_size / total))
+        second_width = max(1, width - first_width)
+        return (
+            make_geometry(0, 0, first_width, height),
+            make_geometry(first_width, 0, second_width, height),
+        )
+
+    def _remove_indexed_child(
+        self,
+        *,
+        container_id: str,
+        child_id: str,
+        get_children,
+        current_index_property: str,
+        min_children_error: str,
+        wrong_parent_error_template: str,
+    ) -> None:
+        children = get_children(container_id)
+        if len(children) <= 1:
+            raise ValueError(min_children_error)
+        if child_id not in {child.id for child in children}:
+            raise ValueError(
+                wrong_parent_error_template.format(child_id=child_id, container_id=container_id)
+            )
+
+        container = self._require_entity(container_id)
+        current_index = int(container.properties.get(current_index_property, 0))
+        remove_index = next(index for index, child in enumerate(children) if child.id == child_id)
+        self.delete_subtree(child_id)
+
+        remaining_children = get_children(container_id)
+        for index, child in enumerate(remaining_children):
+            child.order = index
+
+        if current_index >= len(remaining_children):
+            current_index = len(remaining_children) - 1
+        elif remove_index < current_index:
+            current_index -= 1
+        container.properties[current_index_property] = max(0, current_index)
 
     def _normalize_size_constraints(
         self,
