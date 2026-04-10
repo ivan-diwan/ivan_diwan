@@ -1,0 +1,858 @@
+Подэтап G — QListWidget
+
+Подключай QListWidget сразу после полного закрытия QPlainTextEdit.
+Архитектуру не меняй. Повтори тот же pipeline для спискового leaf-виджета.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QListWidget проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QListWidget
+
+Считай QListWidget обычным leaf-объектом.
+
+Тип
+
+type_name = "QListWidget"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Data"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QListWidget"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+items: list[str]
+
+current_row: int
+
+
+Значения по умолчанию
+
+items = []
+
+current_row = -1
+
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+selection_mode
+
+sorting_enabled
+
+uniform_item_sizes
+
+view_mode
+
+drag_drop_mode
+
+alternating_row_colors
+
+
+Сначала закрой базовый рабочий уровень.
+
+
+---
+
+4. Добавь QListWidget в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QListWidget"
+
+display_name = "List Widget"
+
+category = "Data"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Data"
+
+creatable_by_user = true
+
+name_prefix = "list_widget"
+
+
+default_size
+
+Возьми:
+
+width = 170
+
+height = 110
+
+
+property_schema
+
+items
+
+data_type = "list[str]"
+
+required = true
+
+default = []
+
+editor = "string_list"
+
+
+current_row
+
+data_type = "int"
+
+required = true
+
+default = -1
+
+editor = "integer"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+List Widget появился в группе Data
+
+drag source передает type_name = "QListWidget"
+
+
+Не двигайся дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QListWidget в FormDocument
+
+Специальной логики не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь QListWidget в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QListWidget":
+
+создавай QListWidget
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. clear()
+
+
+2. addItems(items)
+
+
+3. setCurrentRow(current_row) — только если индекс допустим
+
+
+4. если current_row = -1, явно сбрасывай текущий выбор
+
+
+
+
+---
+
+Правильный порядок применения
+
+1. очистка
+
+
+2. добавление элементов
+
+
+3. установка текущей строки
+
+
+
+
+---
+
+Почему это важно
+
+Если сначала установить current_row, а потом перезаполнить список, выбор уйдет.
+
+
+---
+
+8. Сделай явный reset current row
+
+Если current_row:
+
+меньше 0
+
+или больше последнего индекса списка
+
+
+не вызывай setCurrentRow(...).
+
+Для надежности после clear() и addItems(...) делай:
+
+либо ничего
+
+либо setCurrentRow(-1), если в Qt это работает устойчиво в твоей реализации
+
+
+Если setCurrentRow(-1) ведет себя нестабильно, просто не вызывай его.
+
+
+---
+
+9. Добавь refresh для QListWidget
+
+Проверь, что refresh корректно переустанавливает:
+
+items
+
+current_row
+
+
+После изменения из PropertyPanel список на canvas должен обновляться без полного rebuild canvas.
+
+
+---
+
+10. Добавь QListWidget в PropertyPanel
+
+Панель свойств должна показывать QListWidget как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+items
+
+current_row
+
+
+Типы редакторов
+
+Используй:
+
+items → string_list
+
+current_row → QSpinBox
+
+
+
+---
+
+11. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для items
+
+update_entity_property(entity_id, "items", new_items)
+
+
+Для current_row
+
+update_entity_property(entity_id, "current_row", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(entity_id)
+
+
+4. property_panel.rebuild()
+
+
+
+
+---
+
+12. Добавь нормализацию свойств QListWidget
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_list_widget_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если items отсутствует:
+
+ставь []
+
+
+Правило 2
+
+Если items не список:
+
+приводи к списку строк через безопасную нормализацию
+
+
+Правило 3
+
+Каждый элемент items приводи к str
+
+Правило 4
+
+Если current_row < -1:
+
+ставь -1
+
+
+Правило 5
+
+Если список пуст:
+
+current_row = -1
+
+
+Правило 6
+
+Если current_row >= len(items):
+
+ставь -1 или
+
+последний допустимый индекс
+
+
+Для устойчивой первой версии делай:
+
+current_row = -1
+
+
+
+---
+
+13. Зафиксируй формат string_list редактора
+
+Для items используй тот же редактор, что уже есть для других string list свойств.
+
+Принцип:
+
+одна строка = один элемент списка
+
+
+
+---
+
+При чтении из редактора
+
+1. разбей текст по строкам
+
+
+2. убери только завершающие пустые строки, если это нужно
+
+
+3. оставшиеся строки сохраняй как items
+
+
+
+
+---
+
+Не делай пока
+
+отдельные кнопки add/remove item
+
+drag сортировку строк внутри редактора
+
+inline-таблицу для items
+
+
+Сначала держи один устойчивый multiline pipeline.
+
+
+---
+
+14. Проверь работу CanvasEditor
+
+QListWidget не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+15. Проверь serializer
+
+QListWidget не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "items": ["Первый", "Второй", "Третий"],
+  "current_row": 1
+}
+
+Проверь:
+
+items остается массивом строк
+
+current_row остается int
+
+
+
+---
+
+16. Добавь экспорт QListWidget в PythonExporter
+
+В exporter добавь отдельную ветку для QListWidget.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. addItems([...]) — если список не пуст
+
+
+5. setCurrentRow(...) — если индекс допустим
+
+
+
+Пример
+
+self.list_widget_1 = QListWidget(self)
+self.list_widget_1.setObjectName("list_widget_1")
+self.list_widget_1.setGeometry(100, 80, 170, 110)
+self.list_widget_1.addItems(["Первый", "Второй", "Третий"])
+self.list_widget_1.setCurrentRow(1)
+
+Не генерируй setCurrentRow(...), если:
+
+current_row = -1
+
+список пуст
+
+индекс вне диапазона
+
+
+
+---
+
+17. Добавь импорт QListWidget в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QListWidget(parent)
+
+addItem(...)
+
+addItems(...)
+
+setCurrentRow(...)
+
+
+
+---
+
+Восстанавливай свойства
+
+items
+
+current_row
+
+
+Если встретился addItem(...) несколько раз:
+
+собирай список последовательно
+
+
+Если встретился addItems([...]):
+
+добавляй все элементы по порядку
+
+
+После полного разбора прогоняй через helper нормализации.
+
+
+---
+
+18. Проверь round-trip для QListWidget
+
+Сделай обязательный цикл:
+
+1. создать QListWidget в редакторе
+
+
+2. изменить:
+
+items
+
+current_row
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+19. Подготовь тестовые сценарии для QListWidget
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QListWidget
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — список строк
+
+задать:
+
+["Первый", "Второй", "Третий"]
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+список отображается корректно
+
+
+Сценарий 3 — текущий индекс
+
+задать current_row = 1
+
+
+Проверить:
+
+выбрана вторая строка
+
+JSON обновился
+
+
+Сценарий 4 — пустой список
+
+задать items = []
+
+
+Проверить:
+
+current_row нормализован в -1
+
+документ валиден
+
+
+Сценарий 5 — выход за диапазон
+
+список из двух элементов
+
+задать current_row = 10
+
+
+Проверить:
+
+значение нормализовано
+
+документ валиден
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QListWidget внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+20. Проверь работу в special-container контекстах
+
+QListWidget как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства:
+
+Page-based
+
+вкладка / page / section / wizard page
+
+
+Content-based
+
+scroll area
+
+
+Pane-based
+
+splitter
+
+
+
+---
+
+21. Зафиксируй критерий завершения QListWidget
+
+Считай QListWidget полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+22. Что делать сразу после закрытия QListWidget
+
+Переходи к:
+
+Подэтап H — QTableWidget
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+Содержимое ячеек пока не подключай.

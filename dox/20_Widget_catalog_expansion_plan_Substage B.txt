@@ -1,0 +1,967 @@
+Подэтап B — QDoubleSpinBox
+
+Подключай QDoubleSpinBox сразу после полного закрытия QSpinBox.
+Не меняй архитектуру. Повтори тот же pipeline, но для float-значений.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QDoubleSpinBox проходил полный цикл:
+
+виден в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери свойств и структуры
+
+
+
+---
+
+2. Зафиксируй модель QDoubleSpinBox
+
+Считай QDoubleSpinBox обычным leaf-объектом.
+
+
+---
+
+Тип
+
+type_name = "QDoubleSpinBox"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+
+---
+
+3. Зафиксируй набор свойств QDoubleSpinBox
+
+Подключай только устойчивый базовый набор.
+
+
+---
+
+Обязательные свойства
+
+value: float
+
+minimum: float
+
+maximum: float
+
+step: float
+
+decimals: int
+
+prefix: str
+
+suffix: str
+
+
+
+---
+
+Значения по умолчанию
+
+value = 0.0
+
+minimum = 0.0
+
+maximum = 99.0
+
+step = 1.0
+
+decimals = 2
+
+prefix = ""
+
+suffix = ""
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+wrapping
+
+accelerated
+
+specialValueText
+
+showGroupSeparator
+
+alignment
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QDoubleSpinBox в WidgetRegistry
+
+В registry/builtins.py создай полное определение типа.
+
+
+---
+
+Зафиксируй
+
+type_name = "QDoubleSpinBox"
+
+display_name = "Double Spin Box"
+
+category = "Numbers"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+creatable_by_user = true
+
+name_prefix = "double_spin_box"
+
+
+
+---
+
+default_size
+
+Возьми, например:
+
+width = 110
+
+height = 26
+
+
+
+---
+
+property_schema
+
+Добавь:
+
+value
+
+data_type = "float"
+
+required = true
+
+default = 0.0
+
+editor = "float"
+
+
+minimum
+
+data_type = "float"
+
+required = true
+
+default = 0.0
+
+editor = "float"
+
+
+maximum
+
+data_type = "float"
+
+required = true
+
+default = 99.0
+
+editor = "float"
+
+
+step
+
+data_type = "float"
+
+required = true
+
+default = 1.0
+
+editor = "float"
+
+
+decimals
+
+data_type = "int"
+
+required = true
+
+default = 2
+
+editor = "integer"
+
+
+prefix
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+suffix
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+
+---
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+
+---
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+
+---
+
+Qt-класс
+
+qt_class_name = "QDoubleSpinBox"
+
+
+
+---
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Double Spin Box отображается в группе Numbers
+
+drag source передает type_name = "QDoubleSpinBox"
+
+
+Не переходи дальше, пока палитра не работает корректно.
+
+
+---
+
+6. Добавь QDoubleSpinBox в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+
+---
+
+В create_widget(entity)
+
+Если entity.type == "QDoubleSpinBox":
+
+создавай QDoubleSpinBox
+
+
+
+---
+
+В apply_properties(widget, entity)
+
+Поддержи:
+
+1. setMinimum(...)
+
+
+2. setMaximum(...)
+
+
+3. setSingleStep(...)
+
+
+4. setDecimals(...)
+
+
+5. setPrefix(...)
+
+
+6. setSuffix(...)
+
+
+7. setValue(...)
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй в таком порядке:
+
+1. minimum
+
+
+2. maximum
+
+
+3. step
+
+
+4. decimals
+
+
+5. prefix
+
+
+6. suffix
+
+
+7. value
+
+
+
+
+---
+
+Почему это важно
+
+Сначала фиксируй диапазон и точность, потом итоговое значение.
+Иначе виджет может сам скорректировать число и дать расхождение с документом.
+
+
+---
+
+7. Добавь QDoubleSpinBox в PropertyPanel
+
+Панель свойств должна показывать QDoubleSpinBox как обычный leaf-объект.
+
+
+---
+
+Основное
+
+type read-only
+
+name
+
+parent read-only
+
+
+
+---
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+
+---
+
+Свойства
+
+value
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+prefix
+
+suffix
+
+
+
+---
+
+Типы редакторов
+
+Используй:
+
+value → QDoubleSpinBox
+
+minimum → QDoubleSpinBox
+
+maximum → QDoubleSpinBox
+
+step → QDoubleSpinBox
+
+decimals → QSpinBox
+
+prefix → QLineEdit
+
+suffix → QLineEdit
+
+
+
+---
+
+8. Нормализуй применение изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+
+---
+
+Для value
+
+update_entity_property(entity_id, "value", new_value)
+
+
+Для minimum
+
+update_entity_property(entity_id, "minimum", new_value)
+
+
+Для maximum
+
+update_entity_property(entity_id, "maximum", new_value)
+
+
+Для step
+
+update_entity_property(entity_id, "step", new_value)
+
+
+Для decimals
+
+update_entity_property(entity_id, "decimals", new_value)
+
+
+Для prefix
+
+update_entity_property(entity_id, "prefix", new_value)
+
+
+Для suffix
+
+update_entity_property(entity_id, "suffix", new_value)
+
+
+
+---
+
+9. Добавь нормализацию свойств QDoubleSpinBox
+
+Сделай отдельный helper, не смешивай его с integer spinbox.
+
+Например:
+
+_normalize_double_spinbox_properties(properties: dict) -> dict
+
+
+
+---
+
+Правило 1
+
+Если minimum > maximum:
+
+при установке minimum подними maximum = minimum
+
+при установке maximum опусти minimum = maximum
+
+
+
+---
+
+Правило 2
+
+Если value < minimum:
+
+ставь value = minimum
+
+
+Правило 3
+
+Если value > maximum:
+
+ставь value = maximum
+
+
+Правило 4
+
+Если step <= 0:
+
+ставь step = 1.0
+
+
+Правило 5
+
+Если decimals < 0:
+
+ставь decimals = 0
+
+
+Правило 6
+
+Если decimals слишком велико:
+
+зафиксируй верхний предел, например 10
+
+
+
+---
+
+10. Проверь, что CanvasEditor не требует специальных изменений
+
+QDoubleSpinBox должен работать через уже существующий LeafItemView.
+
+Проверь:
+
+создается ли виджет
+
+выбирается ли
+
+refresh корректно применяет float-свойства
+
+move и resize работают без специальных веток
+
+
+Если нет — исправляй на уровне WidgetFactory и property pipeline.
+
+
+---
+
+11. Проверь serializer
+
+QDoubleSpinBox не требует специальных кейсов в serializer.
+
+Проверь только, что в JSON сохраняются float-значения как числа, а не как строки.
+
+Пример:
+
+"properties": {
+  "value": 2.5,
+  "minimum": 0.0,
+  "maximum": 10.0,
+  "step": 0.25,
+  "decimals": 2,
+  "prefix": "",
+  "suffix": " m"
+}
+
+
+---
+
+12. Добавь экспорт QDoubleSpinBox в PythonExporter
+
+Добавь отдельную ветку для QDoubleSpinBox.
+
+
+---
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimum(...)
+
+
+5. setMaximum(...)
+
+
+6. setSingleStep(...)
+
+
+7. setDecimals(...)
+
+
+8. setPrefix(...) — если не пусто
+
+
+9. setSuffix(...) — если не пусто
+
+
+10. setValue(...)
+
+
+
+
+---
+
+Пример
+
+self.double_spin_box_1 = QDoubleSpinBox(self)
+self.double_spin_box_1.setObjectName("double_spin_box_1")
+self.double_spin_box_1.setGeometry(100, 80, 110, 26)
+self.double_spin_box_1.setMinimum(0.0)
+self.double_spin_box_1.setMaximum(10.0)
+self.double_spin_box_1.setSingleStep(0.25)
+self.double_spin_box_1.setDecimals(2)
+self.double_spin_box_1.setSuffix(" m")
+self.double_spin_box_1.setValue(2.5)
+
+
+---
+
+13. Добавь импорт QDoubleSpinBox в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QDoubleSpinBox(parent)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setDecimals(...)
+
+setPrefix(...)
+
+setSuffix(...)
+
+setValue(...)
+
+
+
+---
+
+Восстанавливай свойства
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+prefix
+
+suffix
+
+value
+
+
+После разбора прогоняй через helper нормализации.
+
+
+---
+
+14. Проверь round-trip для QDoubleSpinBox
+
+Сделай обязательный цикл:
+
+1. создать QDoubleSpinBox в редакторе
+
+
+2. изменить:
+
+value
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+prefix
+
+suffix
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать в .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+15. Подготовь тестовые сценарии для QDoubleSpinBox
+
+Закрывай подэтап только если проходят все.
+
+
+---
+
+Сценарий 1
+
+Создание
+
+создать QDoubleSpinBox
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+
+---
+
+Сценарий 2
+
+Свойства
+
+поставить:
+
+value = 2.5
+
+minimum = 0.0
+
+maximum = 10.0
+
+step = 0.25
+
+decimals = 2
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+
+
+---
+
+Сценарий 3
+
+Префикс/суффикс
+
+prefix = "~ "
+
+suffix = " m"
+
+
+Проверить:
+
+виджет показывает их корректно
+
+JSON обновился
+
+
+
+---
+
+Сценарий 4
+
+Нормализация диапазона
+
+выставить minimum = 50.0
+
+потом maximum = 10.0
+
+
+Проверить:
+
+документ остался валидным
+
+minimum/maximum/value согласованы
+
+
+
+---
+
+Сценарий 5
+
+Нормализация точности
+
+выставить decimals = -1
+
+
+Проверить:
+
+значение нормализовано
+
+документ валиден
+
+
+
+---
+
+Сценарий 6
+
+JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+
+---
+
+Сценарий 7
+
+Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+
+---
+
+16. Зафиксируй критерий завершения QDoubleSpinBox
+
+Считай QDoubleSpinBox полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+
+
+---
+
+17. Что делать сразу после закрытия QDoubleSpinBox
+
+Переходи к:
+
+Подэтап C — QSlider
+
+Делай по той же схеме.
+Подключай свойства:
+
+orientation
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+И не меняй архитектуру.

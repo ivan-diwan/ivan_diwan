@@ -1,0 +1,1275 @@
+Тринадцатая рабочая контрольная точка
+
+Собери строго это состояние:
+
+работает PythonImporter
+
+импорт строится только как преобразование .py в нормализованный документ
+
+восстанавливается FormRoot
+
+восстанавливаются leaf-объекты
+
+восстанавливаются обычные контейнеры
+
+восстанавливаются:
+
+QTabWidget
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+QWizard
+
+
+внутренние сущности (TabPage, ContainerContent, StackPage, ToolPage, SplitterPane, WizardPage) восстанавливаются обратно в документ
+
+результат импорта пригоден для открытия в редакторе без ручной доработки
+
+результат .py -> document -> export дает устойчивую обратную цепочку
+
+
+После этого переходи к общей стабилизации и финальной фиксации конструктора.
+
+
+---
+
+1. Цель тринадцатой контрольной точки
+
+Закрой обратное направление.
+
+Пользователь должен мочь:
+
+1. взять .py, экспортированный системой
+
+
+2. загрузить его обратно
+
+
+3. получить полноценный FormDocument
+
+
+4. открыть форму в редакторе
+
+
+5. продолжить редактирование
+
+
+6. снова экспортировать без потери структуры
+
+
+
+
+---
+
+2. Зафиксируй границы importer
+
+Импортер должен работать только на том подмножестве Python-кода, которое генерирует твой exporter.
+
+Не пытайся делать универсальный анализ любого PySide6-кода.
+
+Зафиксируй правило:
+
+importer поддерживает только собственный экспортный формат
+
+чужой свободный код PySide6 не считается обязательным сценарием
+
+
+
+---
+
+3. Построй importer через AST, а не через запуск кода
+
+Не запускай импортируемый .py как живое приложение для извлечения структуры.
+
+Строй importer через:
+
+чтение файла
+
+ast.parse(...)
+
+анализ class/method/body
+
+извлечение нормализованных операций
+
+
+
+---
+
+4. Создай модуль importer
+
+Создай файл:
+
+conversion/importer.py
+
+Создай класс:
+
+PythonImporter
+
+
+
+---
+
+Основные методы
+
+import_from_file(path: str) -> FormDocument
+
+import_from_code(code: str) -> FormDocument
+
+_parse_ast(code: str) -> ast.Module
+
+_find_form_class(module: ast.Module) -> ast.ClassDef
+
+_find_setup_method(class_node: ast.ClassDef) -> ast.FunctionDef
+
+_extract_root_info(...)
+
+_extract_entities(...)
+
+_build_document(...)
+
+
+
+---
+
+5. Введи внутреннюю модель разбора Python
+
+Не собирай FormDocument прямо во время прохода по AST.
+
+Сделай промежуточную модель.
+
+Создай dataclass-структуры, например:
+
+ParsedRoot
+
+ParsedEntity
+
+ParsedSpecialContainerState
+
+
+
+---
+
+ParsedRoot
+
+Поля:
+
+root_widget_type
+
+name
+
+width
+
+height
+
+window_title
+
+
+
+---
+
+ParsedEntity
+
+Поля:
+
+ref_name
+
+type_name
+
+parent_ref
+
+geometry
+
+properties
+
+creation_order
+
+special_parent_kind
+
+special_internal_role
+
+
+
+---
+
+6. Привяжи importer к экспортному шаблону
+
+Опирайся только на тот шаблон, который генерирует exporter.
+
+Извлекай строго такие паттерны:
+
+создание widget:
+
+self.name = Type(parent)
+
+
+setObjectName(...)
+
+setGeometry(...)
+
+setText(...)
+
+setPlaceholderText(...)
+
+setChecked(...)
+
+setEditable(...)
+
+addTab(...)
+
+setWidget(...)
+
+addWidget(...)
+
+addItem(...)
+
+setSizes(...)
+
+setOrientation(...)
+
+setCurrentIndex(...)
+
+addPage(...)
+
+setTitle(...)
+
+setSubTitle(...)
+
+
+
+---
+
+7. Восстанови FormRoot
+
+Импортер должен уметь найти:
+
+root class
+
+тип root:
+
+QWidget
+
+QDialog
+
+
+resize(width, height)
+
+setWindowTitle(...)
+
+
+
+---
+
+Алгоритм
+
+1. найти класс формы
+
+
+2. определить базовый класс:
+
+QWidget или QDialog
+
+
+
+3. найти метод setup_ui
+или ту структуру, которую генерирует exporter
+
+
+4. внутри root-последовательности найти:
+
+self.resize(...)
+
+self.setWindowTitle(...)
+
+
+
+
+
+---
+
+Сформируй FormRootModel
+
+id = "form_root"
+
+type = "FormRoot"
+
+name = "form"
+или восстанови из setObjectName, если root exporter его выставляет
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+
+---
+
+8. Построй таблицу python_ref -> ParsedEntity
+
+Во время разбора кода создай центральный mapping:
+
+self.push_button_1 → ParsedEntity(...)
+
+self.tab_widget_1 → ParsedEntity(...)
+
+self.tab_page_1 → ParsedEntity(...)
+
+и т.д.
+
+
+Это будет основой для дальнейшего построения документа.
+
+
+---
+
+9. Разбирай создание объектов первым проходом
+
+Сделай первый AST-проход только по строкам создания объектов.
+
+Лови паттерн:
+
+self.some_name = SomeType(parent_ref)
+
+
+---
+
+Из этого извлекай
+
+ref_name = some_name
+
+type_name = SomeType
+
+parent_ref
+
+
+
+---
+
+Для parent_ref
+
+Возможные варианты:
+
+self
+
+self.group_box_1
+
+self.tab_page_1
+
+self.scroll_content_1
+
+self.stack_page_1
+
+self.tool_page_1
+
+self.splitter_pane_1
+
+self.wizard_page_1
+
+
+
+---
+
+10. Разбирай свойства вторым проходом
+
+После того как все объекты зарегистрированы, делай второй проход по присваиваниям и вызовам методов.
+
+Лови паттерны:
+
+self.x.setObjectName(...)
+
+self.x.setGeometry(...)
+
+self.x.setText(...)
+
+self.x.setPlaceholderText(...)
+
+self.x.setChecked(...)
+
+self.x.setEditable(...)
+
+self.x.setFrameShape(...)
+
+self.x.setFrameShadow(...)
+
+self.x.setTitle(...)
+
+self.x.setCheckable(...)
+
+self.x.setWidgetResizable(...)
+
+self.x.setCurrentIndex(...)
+
+self.x.setTabsClosable(...)
+
+self.x.setOrientation(...)
+
+self.x.setSizes(...)
+
+self.x.setSubTitle(...)
+
+
+
+---
+
+11. Восстанавливай geometry строго из setGeometry(...)
+
+Лови:
+
+self.some_ref.setGeometry(x, y, width, height)
+
+Записывай в ParsedEntity.geometry.
+
+Для internal-типов, где exporter geometry не ставит:
+
+geometry восстанавливай позже по умолчанию или по parent-контексту
+
+
+
+---
+
+12. Восстанавливай leaf-свойства напрямую
+
+Поддержи на первом полном проходе:
+
+QLabel
+
+setText
+
+
+QPushButton
+
+setText
+
+
+QLineEdit
+
+setText
+
+setPlaceholderText
+
+
+QCheckBox
+
+setText
+
+setChecked
+
+
+QRadioButton
+
+setText
+
+setChecked
+
+
+QComboBox
+
+addItem
+
+addItems
+
+setCurrentIndex
+
+setEditable
+
+
+
+---
+
+13. Восстанавливай обычные контейнеры
+
+Поддержи:
+
+QFrame
+
+setFrameShape
+
+setFrameShadow
+
+
+QGroupBox
+
+setTitle
+
+setCheckable
+
+setChecked
+
+
+QWidget не требует специальных свойств.
+
+
+---
+
+14. Восстанавливай QTabWidget
+
+Лови структуру:
+
+self.tab_widget_1 = QTabWidget(self)
+self.tab_page_1 = QWidget()
+self.tab_widget_1.addTab(self.tab_page_1, "Tab 1")
+self.tab_page_2 = QWidget()
+self.tab_widget_1.addTab(self.tab_page_2, "Tab 2")
+self.tab_widget_1.setCurrentIndex(0)
+
+
+---
+
+Алгоритм восстановления
+
+1. зарегистрировать QTabWidget
+
+
+2. зарегистрировать внутренние page widgets как TabPage
+
+
+3. из addTab(page_ref, title):
+
+установить у page:
+
+parent_id = tab_widget_id
+
+order
+
+properties["title"]
+
+
+
+
+4. из setCurrentIndex:
+
+записать current_index
+
+
+
+
+
+---
+
+Правило
+
+Не оставляй tab_page_1 как обычный QWidget документа.
+Преобразуй его в внутреннюю сущность:
+
+type = "TabPage"
+
+
+
+---
+
+15. Восстанавливай QScrollArea
+
+Лови структуру:
+
+self.scroll_area_1 = QScrollArea(self)
+self.scroll_content_1 = QWidget()
+self.scroll_area_1.setWidget(self.scroll_content_1)
+self.scroll_area_1.setWidgetResizable(True)
+
+
+---
+
+Алгоритм
+
+1. зарегистрировать QScrollArea
+
+
+2. зарегистрировать scroll_content_1 как внутреннюю сущность
+
+
+3. из setWidget(...) преобразовать scroll_content_1 в:
+
+type = "ContainerContent"
+
+parent_id = scroll_area_id
+
+
+
+4. children этого content widget перепривязать к ContainerContent
+
+
+
+
+---
+
+16. Восстанавливай QStackedWidget
+
+Лови структуру:
+
+self.stacked_widget_1 = QStackedWidget(self)
+self.stack_page_1 = QWidget()
+self.stacked_widget_1.addWidget(self.stack_page_1)
+self.stack_page_2 = QWidget()
+self.stacked_widget_1.addWidget(self.stack_page_2)
+self.stacked_widget_1.setCurrentIndex(0)
+
+
+---
+
+Алгоритм
+
+1. зарегистрировать QStackedWidget
+
+
+2. каждый внутренний widget, добавленный через addWidget(...), преобразовать в:
+
+type = "StackPage"
+
+parent_id = stacked_widget_id
+
+order
+
+
+
+3. если есть читаемое имя страницы или title, восстанавливай в properties["title"]
+
+
+4. setCurrentIndex(...) восстанови в properties["current_index"]
+
+
+
+
+---
+
+17. Восстанавливай QToolBox
+
+Лови структуру:
+
+self.toolbox_1 = QToolBox(self)
+self.tool_page_1 = QWidget()
+self.toolbox_1.addItem(self.tool_page_1, "Section 1")
+
+
+---
+
+Алгоритм
+
+1. зарегистрировать QToolBox
+
+
+2. каждый widget из addItem(...) преобразовать в:
+
+type = "ToolPage"
+
+parent_id = toolbox_id
+
+order
+
+properties["title"]
+
+
+
+3. setCurrentIndex(...) восстановить в properties["current_index"]
+
+
+
+
+---
+
+18. Восстанавливай QSplitter
+
+Лови структуру:
+
+self.splitter_1 = QSplitter(self)
+self.splitter_pane_1 = QWidget()
+self.splitter_1.addWidget(self.splitter_pane_1)
+self.splitter_pane_2 = QWidget()
+self.splitter_1.addWidget(self.splitter_pane_2)
+self.splitter_1.setOrientation(Qt.Horizontal)
+self.splitter_1.setSizes([250, 250])
+
+
+---
+
+Алгоритм
+
+1. зарегистрировать QSplitter
+
+
+2. каждый widget из addWidget(...) преобразовать в:
+
+type = "SplitterPane"
+
+parent_id = splitter_id
+
+order
+
+
+
+3. orientation преобразовать в:
+
+"horizontal" или "vertical"
+
+
+
+4. sizes восстановить в:
+
+properties["sizes"]
+
+
+
+
+
+---
+
+19. Восстанавливай QWizard
+
+Лови структуру:
+
+self.wizard_1 = QWizard(self)
+self.wizard_page_1 = QWizardPage()
+self.wizard_page_1.setTitle("Page 1")
+self.wizard_page_1.setSubTitle("...")
+self.wizard_1.addPage(self.wizard_page_1)
+
+
+---
+
+Алгоритм
+
+1. зарегистрировать QWizard
+
+
+2. каждый объект, добавленный через addPage(...), преобразовать в:
+
+type = "WizardPage"
+
+parent_id = wizard_id
+
+order
+
+
+
+3. из setTitle(...) восстановить title
+
+
+4. из setSubTitle(...) восстановить subtitle
+
+
+5. current_index восстановить, если exporter его пишет
+
+
+
+
+---
+
+20. Сделай mapping special-container внутренних ref в internal-типы
+
+Введи helper:
+
+_convert_internal_widget_to_document_type(ref_name, parent_special_type, context)
+
+
+
+---
+
+Mapping
+
+widget из addTab(...) → TabPage
+
+widget из setWidget(...) у QScrollArea → ContainerContent
+
+widget из addWidget(...) у QStackedWidget → StackPage
+
+widget из addItem(...) у QToolBox → ToolPage
+
+widget из QSplitter.addWidget(...) → SplitterPane
+
+widget из QWizard.addPage(...) → WizardPage
+
+
+
+---
+
+21. Восстанови parent_id для обычных children
+
+После того как special-container внутренние сущности определены, сделай второй уровень перепривязки.
+
+Если объект в Python создавался с parent ref:
+
+self.tab_page_1
+
+self.scroll_content_1
+
+self.stack_page_1
+
+self.tool_page_1
+
+self.splitter_pane_1
+
+self.wizard_page_1
+
+
+то в документе parent должен быть:
+
+tab_page_id
+
+container_content_id
+
+stack_page_id
+
+tool_page_id
+
+splitter_pane_id
+
+wizard_page_id
+
+
+
+---
+
+22. Нормализуй порядок children
+
+Для страниц и внутренних контейнеров порядок не бери из случайного порядка обхода AST.
+
+Восстанавливай order по:
+
+порядку addTab
+
+порядку addItem
+
+порядку addWidget
+
+порядку addPage
+
+
+Для обычных children порядок восстанавливай по порядку появления создания в коде.
+
+
+---
+
+23. Нормализуй name и id
+
+Из Python ref:
+
+self.push_button_1 восстанавливай:
+
+name = "push_button_1"
+
+
+id формируй либо:
+
+таким же, как name или
+
+через общий deterministic mapping
+
+
+Для устойчивости importer/exporter цикла лучше:
+
+id = name, если это имя уже уникально и соответствует модели
+
+
+
+---
+
+24. Восстанови geometry для internal-типов минимально корректно
+
+Если exporter не ставил setGeometry(...) на:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+то при импорте делай разумные дефолты:
+
+x = 0
+
+y = 0
+
+width и height по geometry special-container родителя
+или
+
+временные дефолтные значения, если точный размер не вытащить из кода
+
+
+Главное:
+
+документ должен быть валиден
+
+внутренние сущности должны существовать
+
+
+
+---
+
+25. Построй FormDocument только после полного разбора AST
+
+Не создавай документ по ходу прохода.
+
+Сделай pipeline:
+
+1. parse AST
+
+
+2. собрать ParsedRoot
+
+
+3. собрать ParsedEntity
+
+
+4. преобразовать special-container внутренние ref
+
+
+5. нормализовать parent-child
+
+
+6. нормализовать order
+
+
+7. собрать FormDocument
+
+
+8. прогнать валидатор
+
+
+
+
+---
+
+26. Создай conversion/python_converter.py как фасад в обе стороны
+
+После добавления importer сделай единый фасад:
+
+export_to_python(document, path)
+
+import_from_python(path) -> FormDocument
+
+
+
+---
+
+27. Подключи загрузку .py в DocumentController
+
+Добавь:
+
+load_document_from_python(path)
+
+
+Логика:
+
+1. вызвать importer
+
+
+2. получить FormDocument
+
+
+3. сделать его активным
+
+
+4. открыть FormWindow
+
+
+5. передать документ в canvas
+
+
+6. обновить PropertyPanel
+
+
+
+
+---
+
+28. Подключи кнопку Загрузить к выбору формата
+
+Сделай так, чтобы MainEditorWindow при загрузке:
+
+определял расширение файла
+
+.json → serializer
+
+.py → importer
+
+
+Не делай отдельные кнопки.
+Оставь единый сценарий Загрузить.
+
+
+---
+
+29. Добавь в importer синтаксическую проверку файла
+
+Перед AST-разбором:
+
+1. прочитать код
+
+
+2. прогнать через ast.parse
+
+
+3. если ошибка — импортер должен вернуть понятное сообщение и не пытаться собирать документ
+
+
+
+
+---
+
+30. Зафиксируй ограничения importer
+
+Импортер должен прямо считать ошибкой:
+
+отсутствие root класса нужного шаблона
+
+отсутствие setup_ui
+
+отсутствие ожидаемых паттернов создания объектов
+
+невозможность определить parent-child для special-container внутренней структуры
+
+
+Не пытайся “угадывать” слишком много.
+
+
+---
+
+31. Добавь тесты на round-trip
+
+Сделай основной сценарий проверки:
+
+1. создать документ
+
+
+2. экспортировать в .py
+
+
+3. импортировать обратно в FormDocument
+
+
+4. снова экспортировать в .py
+
+
+5. сравнить структурно:
+
+root
+
+типы сущностей
+
+parent-child
+
+properties
+
+geometry
+
+
+
+
+Не требуй полного совпадения строка-в-строку на этом этапе.
+Требуй совпадения структуры документа.
+
+
+---
+
+32. Проверь round-trip по уровням сложности
+
+Закрывай этап только если работают все сценарии.
+
+
+---
+
+Сценарий 1
+
+Пустая форма:
+
+export
+
+import
+
+документ восстановлен
+
+
+
+---
+
+Сценарий 2
+
+Leaf-объекты:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Все свойства восстановлены.
+
+
+---
+
+Сценарий 3
+
+Обычные контейнеры:
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+children внутри них
+
+
+Структура восстановлена.
+
+
+---
+
+Сценарий 4
+
+QTabWidget
+
+страницы восстановлены как TabPage
+
+title восстановлены
+
+children внутри нужных вкладок восстановлены
+
+
+
+---
+
+Сценарий 5
+
+QScrollArea
+
+content widget восстановлен как ContainerContent
+
+children внутри content восстановлены
+
+
+
+---
+
+Сценарий 6
+
+QStackedWidget
+
+страницы восстановлены как StackPage
+
+current index восстановлен
+
+children внутри нужных страниц восстановлены
+
+
+
+---
+
+Сценарий 7
+
+QToolBox
+
+секции восстановлены как ToolPage
+
+titles восстановлены
+
+children внутри нужных секций восстановлены
+
+
+
+---
+
+Сценарий 8
+
+QSplitter
+
+панели восстановлены как SplitterPane
+
+orientation восстановлен
+
+sizes восстановлены
+
+children внутри нужных панелей восстановлены
+
+
+
+---
+
+Сценарий 9
+
+QWizard
+
+страницы восстановлены как WizardPage
+
+title/subtitle восстановлены
+
+children внутри нужных страниц восстановлены
+
+
+
+---
+
+Сценарий 10
+
+Смешанная сложная форма проходит round-trip без потери структуры
+
+
+---
+
+33. Не расширяй importer на произвольный PySide6-код
+
+Зафиксируй строго:
+
+importer обслуживает только экспортный формат системы
+
+поддержка чужого свободного кода не является текущей задачей
+
+
+Это защитит архитектуру от расползания.
+
+
+---
+
+34. Следующий шаг
+
+После устойчивого PythonImporter переходи к:
+
+Четырнадцатая рабочая контрольная точка — финальная стабилизация конструктора
+
+Собирай в таком порядке:
+
+1. проверка всех модулей на согласованность
+
+
+2. очистка временных костылей
+
+
+3. унификация обновления canvas/property/json
+
+
+4. стабилизация selection logic
+
+
+5. стабилизация delete/rebuild сценариев
+
+
+6. стабилизация create/load/save/export/import
+
+
+7. фиксация окончательной минимально-достаточной версии конструктора
+
+
+
+После этого можно считать архитектуру конструктора закрытой.

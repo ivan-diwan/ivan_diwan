@@ -1,0 +1,1118 @@
+Первый пакет файлов. Порядок написания
+
+Пиши файлы не параллельно, а в этом порядке.
+
+
+---
+
+1. document/models.py
+
+Начни с моделей данных.
+Сначала зафиксируй структуры, потом все остальное.
+
+Создай классы
+
+FormRootModel
+
+EntityModel
+
+
+В FormRootModel зафиксируй поля
+
+id
+
+type
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+В EntityModel зафиксируй поля
+
+id
+
+type
+
+parent_id
+
+name
+
+order
+
+geometry
+
+properties
+
+
+Минимальные методы
+
+EntityModel
+
+to_dict()
+
+from_dict(data)
+
+
+FormRootModel
+
+to_dict()
+
+from_dict(data)
+
+
+Требование
+
+Сразу сделай модели пригодными:
+
+для хранения в памяти
+
+для сериализации в dict
+
+для восстановления из dict
+
+
+
+---
+
+2. utils/ids.py
+
+После моделей сделай генерацию идентификаторов.
+
+Создай
+
+IdGenerator
+
+
+Минимальные методы
+
+next(prefix: str) -> str
+
+reset()
+
+
+Правило
+
+Формат id должен быть стабильным.
+
+Пример:
+
+label_1
+
+push_button_1
+
+group_box_1
+
+tab_page_1
+
+
+
+---
+
+3. utils/naming.py
+
+Сразу после id сделай генерацию имен.
+
+Создай функции
+
+make_default_name(prefix: str, index: int) -> str
+
+make_unique_name(existing_names: set[str], prefix: str) -> str
+
+
+Правило
+
+name и id не смешивай.
+
+Пример:
+
+id = obj_push_button_1
+
+name = push_button_1
+
+
+или единообразно:
+
+id = push_button_1
+
+name = push_button_1
+
+
+Но выбери один подход и не меняй его потом.
+
+
+---
+
+4. registry/definitions.py
+
+Теперь зафиксируй типовую систему.
+
+Создай классы
+
+PropertyDefinition
+
+WidgetTypeDefinition
+
+
+PropertyDefinition поля
+
+name
+
+data_type
+
+required
+
+default
+
+editor
+
+allowed_values
+
+
+WidgetTypeDefinition поля
+
+type_name
+
+display_name
+
+category
+
+editor_kind
+
+palette_visible
+
+palette_group
+
+creatable_by_user
+
+name_prefix
+
+default_size
+
+property_schema
+
+allowed_parent_types
+
+allowed_child_types
+
+direct_children_only
+
+special_actions
+
+auto_create_children
+
+qt_class_name
+
+geometry_edit_mode
+
+movable
+
+resizable
+
+deletable_directly
+
+
+Минимальные методы
+
+PropertyDefinition
+
+to_dict()
+
+from_dict(data)
+
+
+WidgetTypeDefinition
+
+to_dict()
+
+from_dict(data)
+
+
+
+---
+
+5. registry/widget_registry.py
+
+Теперь подними сам реестр.
+
+Создай класс
+
+WidgetRegistry
+
+
+Внутреннее хранение
+
+словарь type_name -> WidgetTypeDefinition
+
+
+Минимальные методы
+
+register_type(definition)
+
+get_type(type_name)
+
+has_type(type_name)
+
+list_palette_types()
+
+list_palette_groups()
+
+get_default_size(type_name)
+
+get_default_properties(type_name)
+
+get_name_prefix(type_name)
+
+get_property_schema(type_name)
+
+can_parent(parent_type, child_type)
+
+get_allowed_children(type_name)
+
+get_special_actions(type_name)
+
+get_auto_create_children(type_name)
+
+
+Требование
+
+Реестр не должен зависеть от UI и от PySide6-объектов.
+
+
+---
+
+6. registry/builtins.py
+
+Теперь заполни встроенные типы.
+На первом проходе не подключай все типы, только ядро.
+
+Сначала опиши только эти типы
+
+Leaf
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Контейнеры
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Специальные контейнеры
+
+QTabWidget
+
+QScrollArea
+
+
+Внутренние сущности
+
+TabPage
+
+ContainerContent
+
+
+Создай функцию
+
+build_builtin_registry() -> WidgetRegistry
+
+
+Требование
+
+После вызова этой функции должен получаться готовый реестр с рабочими типами.
+
+
+---
+
+7. document/validator.py
+
+Теперь можно валидировать документ.
+
+Создай класс
+
+DocumentValidator
+
+
+Минимальные методы
+
+validate_document(document, registry)
+
+validate_entity(entity, registry)
+
+validate_parent_child(parent_type, child_type, registry)
+
+
+Проверяй
+
+уникальность id
+
+наличие обязательных полей
+
+существование parent_id
+
+валидность geometry
+
+допустимость parent-child
+
+корректность type
+
+
+Требование
+
+Валидатор должен работать только с моделями и реестром.
+
+
+---
+
+8. document/form_document.py
+
+Теперь собирай центральную модель.
+
+Создай класс
+
+FormDocument
+
+
+Храни внутри
+
+form_root: FormRootModel
+
+entities_by_id: dict[str, EntityModel]
+
+is_dirty: bool
+
+ссылки на:
+
+WidgetRegistry
+
+DocumentValidator
+
+IdGenerator
+
+
+
+Минимальные методы чтения
+
+get_form_root()
+
+get_entity(entity_id)
+
+has_entity(entity_id)
+
+get_parent(entity_id)
+
+get_children(parent_id)
+
+get_descendants(parent_id)
+
+get_root_entities()
+
+
+Минимальные методы изменения
+
+rename_entity(entity_id, new_name)
+
+update_property(entity_id, property_name, value)
+
+update_properties(entity_id, values)
+
+update_geometry(entity_id, x, y, width, height)
+
+move_entity(entity_id, x, y)
+
+resize_entity(entity_id, width, height)
+
+set_order(entity_id, new_order)
+
+
+Минимальные методы создания
+
+Сначала:
+
+create_entity(type_name, parent_id, geometry=None, properties=None, name=None)
+
+
+Минимальные методы удаления
+
+delete_entity(entity_id)
+
+delete_subtree(entity_id)
+
+
+Методы состояния
+
+mark_dirty()
+
+clear_dirty()
+
+
+Требование
+
+На первом проходе не реализуй сразу special-container создание.
+Сначала добейся стабильной работы обычных сущностей.
+
+
+---
+
+9. serialization/writer.py
+
+Теперь сделай вывод документа в dict.
+
+Создай класс
+
+DocumentWriter
+
+
+Метод
+
+to_dict(document: FormDocument) -> dict
+
+
+Структура результата
+
+meta
+
+form
+
+objects
+
+
+Требование
+
+Пиши objects как плоский список.
+
+
+---
+
+10. serialization/parser.py
+
+Теперь сделай обратную загрузку.
+
+Создай класс
+
+DocumentParser
+
+
+Метод
+
+from_dict(data: dict, registry: WidgetRegistry) -> FormDocument
+
+
+Требование
+
+После разбора:
+
+создается FormDocument
+
+создается FormRootModel
+
+создаются все EntityModel
+
+прогоняется валидация
+
+
+
+---
+
+11. serialization/form_serializer.py
+
+Теперь собери фасад.
+
+Создай класс
+
+FormSerializer
+
+
+Методы
+
+to_dict(document)
+
+from_dict(data, registry)
+
+save_json(document, path)
+
+load_json(path, registry)
+
+
+Требование
+
+Сразу добейся полного цикла:
+
+создать документ
+
+сохранить JSON
+
+загрузить JSON
+
+получить эквивалентный документ
+
+
+
+---
+
+12. controller/editor_state.py
+
+Теперь сделай состояние редактора.
+
+Создай класс
+
+EditorState
+
+
+Поля
+
+active_document
+
+active_form_window
+
+selected_entity_id
+
+current_json_path
+
+current_python_path
+
+
+Методы
+
+clear_document_state()
+
+clear_selection()
+
+
+Требование
+
+Это только состояние, без логики документа.
+
+
+---
+
+13. controller/document_controller.py
+
+Теперь сделай координационный слой.
+
+Создай класс
+
+DocumentController
+
+
+Передай в него зависимости
+
+WidgetRegistry
+
+FormSerializer
+
+IdGenerator
+
+
+Внутри держи
+
+EditorState
+
+
+Сначала реализуй только эти методы
+
+Документ
+
+new_document()
+
+load_document_from_json(path)
+
+close_document()
+
+
+Выбор
+
+select_entity(entity_id)
+
+clear_selection()
+
+
+Изменение
+
+rename_entity(entity_id, new_name)
+
+update_entity_property(entity_id, property_name, value)
+
+update_entity_geometry(entity_id, x, y, width, height)
+
+delete_entity(entity_id)
+
+delete_selected_entity()
+
+
+Сериализация
+
+flush_json_snapshot()
+
+
+Требование
+
+Не добавляй пока drag&drop и special actions.
+Сначала добейся устойчивой работы базового жизненного цикла документа.
+
+
+---
+
+14. ui/main_editor/main_editor_window.py
+
+Теперь делай главное окно уже с реальными зависимостями.
+
+Создай класс
+
+MainEditorWindow
+
+
+Внедри в него
+
+DocumentController
+
+PalettePanel
+
+PropertyPanel
+
+
+Сразу сделай методы
+
+bind_controller(controller)
+
+on_create_clicked()
+
+on_load_clicked()
+
+on_save_clicked()
+
+on_delete_clicked()
+
+
+Требование
+
+Кнопки должны реально вызывать методы контроллера, даже если часть сценариев пока заглушки.
+
+
+---
+
+15. ui/palette/palette_panel.py
+
+Теперь сделай палитру рабочей.
+
+Создай класс
+
+PalettePanel
+
+
+Передай в него
+
+WidgetRegistry
+
+
+Методы
+
+build_from_registry()
+
+start_drag(type_name)
+
+
+На первом проходе
+
+Покажи сгруппированный список типов.
+
+Сделай drag source, но не делай еще drop target.
+
+
+---
+
+16. ui/properties/property_panel.py
+
+Теперь сделай панель свойств в базовом виде.
+
+Создай класс
+
+PropertyPanel
+
+
+Передай в него
+
+WidgetRegistry
+
+DocumentController
+
+
+Минимальные методы
+
+show_form_root(form_root)
+
+show_entity(entity)
+
+clear()
+
+rebuild()
+
+
+Сначала поддержи только свойства:
+
+Для формы
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+Для объекта
+
+name
+
+x
+
+y
+
+width
+
+height
+
+
+И по одному свойству для типов:
+
+text
+
+checked
+
+items
+
+
+Не строй пока общую универсальную фабрику редакторов.
+Сначала добейся базовой рабочей панели.
+
+
+---
+
+17. ui/form_window/form_window.py
+
+Теперь сделай отдельное окно формы.
+
+Создай класс
+
+FormWindow
+
+
+Методы
+
+set_canvas(canvas)
+
+set_window_title(title)
+
+
+Требование
+
+Окно должно существовать независимо от левого окна редактора.
+
+
+---
+
+18. canvas/canvas_editor.py
+
+Теперь сделай базовый canvas.
+
+Создай класс
+
+CanvasEditor
+
+
+Передай в него
+
+DocumentController
+
+WidgetFactory
+
+
+На первом проходе реализуй только:
+
+bind_document(document)
+
+rebuild_all()
+
+clear_canvas()
+
+
+На этом этапе canvas должен уметь:
+
+показать пустую форму
+
+показать размеры формы
+
+реагировать на клик по пустому месту
+
+
+Не делай пока объекты и drag.
+
+
+---
+
+19. factory/widget_factory.py
+
+Теперь подключи фабрику.
+
+Создай класс
+
+WidgetFactory
+
+
+Передай в него
+
+WidgetRegistry
+
+
+Сначала поддержи только типы:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Методы
+
+create_widget(entity)
+
+apply_properties(widget, entity)
+
+apply_geometry(widget, entity)
+
+
+Требование
+
+Не поддерживай пока special-container типы.
+
+
+---
+
+20. utils/geometry.py
+
+Теперь сделай геометрические утилиты.
+
+Функции
+
+make_geometry(x, y, width, height) -> dict
+
+normalize_geometry(data) -> dict
+
+local_from_parent(parent_origin, absolute_pos) -> tuple[int, int]
+
+geometry_to_rect(geometry)
+
+
+Требование
+
+Все операции move / resize / drop потом должны опираться на эти функции, а не на самодельные расчеты в canvas.
+
+
+---
+
+21. app/bootstrap.py
+
+Теперь собери все зависимости.
+
+Создай класс
+
+AppBootstrap
+
+
+Метод
+
+build()
+
+
+Внутри создай и свяжи:
+
+IdGenerator
+
+WidgetRegistry
+
+FormSerializer
+
+DocumentController
+
+WidgetFactory
+
+MainEditorWindow
+
+PalettePanel
+
+PropertyPanel
+
+
+На первом проходе FormWindow и CanvasEditor можно создавать контроллером при new_document().
+
+
+---
+
+22. app/application.py
+
+Собери запуск.
+
+Создай класс
+
+EditorApplication
+
+
+Метод
+
+run()
+
+
+Внутри
+
+создай QApplication
+
+вызови AppBootstrap.build()
+
+покажи MainEditorWindow
+
+запусти event loop
+
+
+
+---
+
+23. main.py
+
+Сделай только точку входа.
+
+Логика
+
+импортировать EditorApplication
+
+создать
+
+вызвать run()
+
+
+Больше ничего не клади.
+
+
+---
+
+Первая обязательная рабочая цель
+
+Добейся следующего состояния:
+
+Должно работать
+
+приложение запускается
+
+есть левое окно
+
+кнопка Создать создает новый FormDocument
+
+открывается отдельное FormWindow
+
+в canvas видна пустая форма заданного размера
+
+панель свойств показывает свойства формы
+
+JSON snapshot можно сформировать и сохранить
+
+
+Пока этого не добьешься, не переходи к drag&drop и визуальным объектам.
+
+
+---
+
+После этого переходи ко второму пакету задач
+
+Делай строго в таком порядке:
+
+1. BaseFormItemView
+
+
+2. LeafItemView
+
+
+3. отображение базовых объектов на canvas
+
+
+4. выбор объекта
+
+
+5. property update
+
+
+6. delete
+
+
+7. move
+
+
+8. resize
+
+
+9. drop в FormRoot
+
+
+10. drop в обычные контейнеры
+
+
+
+Только после этого переходи к:
+
+QTabWidget
+
+QScrollArea
+
+другим special-container типам
+
+
+
+---
+
+Следующий шаг
+
+Детализируй теперь конкретный минимум классов и методов для самой первой рабочей контрольной точки, то есть для состояния:
+
+приложение запускается
+
+создается новый пустой документ
+
+открывается отдельное окно пустой формы
+
+свойства формы видны слева
+
+JSON snapshot создается корректно

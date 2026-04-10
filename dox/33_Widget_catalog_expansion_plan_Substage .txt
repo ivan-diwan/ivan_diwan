@@ -1,0 +1,148 @@
+Подэтап P — QDial
+
+
+---
+
+1. Модель
+
+type_name: QDial
+qt_class: QDial
+palette_group: Input
+default_size: 80x80
+
+
+---
+
+2. Свойства
+
+value: int = 0
+minimum: int = 0
+maximum: int = 100
+step: int = 1
+
+
+---
+
+3. Нормализация
+
+minimum <= maximum
+если minimum > maximum → выровнять
+
+step >= 1
+
+value:
+  если < minimum → minimum
+  если > maximum → maximum
+
+
+---
+
+4. Factory
+
+create
+
+QDial()
+
+apply (строго порядок)
+
+setMinimum(minimum)
+setMaximum(maximum)
+setSingleStep(step)
+setValue(value)
+
+
+---
+
+5. PropertyPanel
+
+value → QSpinBox
+minimum → QSpinBox
+maximum → QSpinBox
+step → QSpinBox
+
+
+---
+
+6. Export
+
+QDial
+setMinimum
+setMaximum
+setSingleStep
+setValue
+
+пример
+
+self.dial_1 = QDial(self)
+self.dial_1.setGeometry(100, 80, 80, 80)
+self.dial_1.setMinimum(0)
+self.dial_1.setMaximum(100)
+self.dial_1.setSingleStep(1)
+self.dial_1.setValue(50)
+
+
+---
+
+7. Import
+
+Парсить:
+
+setMinimum
+setMaximum
+setSingleStep
+setValue
+
+
+---
+
+8. Проверки
+
+1. создание
+2. изменение value
+3. изменение диапазона
+4. value вне диапазона → нормализация
+5. JSON round-trip
+6. Python round-trip
+7. вложенные контейнеры
+
+
+---
+
+Дальше (по той же схеме)
+
+Следующий:
+
+Подэтап Q — QLCDNumber
+
+Свойства (сразу зафиксируй):
+
+value: int = 0
+digit_count: int = 5
+
+
+---
+
+Важное правило оптимизации
+
+С этого момента:
+
+не расписывать очевидные вещи (palette, drag&drop, canvas — считаются стандартом)
+
+не повторять pipeline целиком
+
+фокус только на:
+
+свойства
+
+нормализация
+
+factory
+
+export/import
+
+
+
+
+---
+
+Если ок — продолжаю сразу с QLCDNumber в таком же сжатом формате.

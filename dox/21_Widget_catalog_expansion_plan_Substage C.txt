@@ -1,0 +1,942 @@
+Подэтап C — QSlider
+
+Подключай QSlider сразу после полного закрытия QDoubleSpinBox.
+Не меняй архитектуру. Повтори тот же pipeline, но с учетом orientation.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QSlider проходил полный цикл:
+
+виден в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери свойств и структуры
+
+
+
+---
+
+2. Зафиксируй модель QSlider
+
+Считай QSlider обычным leaf-объектом.
+
+
+---
+
+Тип
+
+type_name = "QSlider"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+
+---
+
+3. Зафиксируй набор свойств QSlider
+
+Подключай только устойчивый базовый набор.
+
+
+---
+
+Обязательные свойства
+
+orientation: str
+
+value: int
+
+minimum: int
+
+maximum: int
+
+step: int
+
+
+
+---
+
+Значения по умолчанию
+
+orientation = "horizontal"
+
+value = 0
+
+minimum = 0
+
+maximum = 100
+
+step = 1
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+tick_position
+
+tick_interval
+
+inverted_appearance
+
+inverted_controls
+
+tracking
+
+page_step
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QSlider в WidgetRegistry
+
+В registry/builtins.py создай полное определение типа.
+
+
+---
+
+Зафиксируй
+
+type_name = "QSlider"
+
+display_name = "Slider"
+
+category = "Numbers"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+creatable_by_user = true
+
+name_prefix = "slider"
+
+
+
+---
+
+default_size
+
+Возьми:
+
+Для первой версии
+
+width = 140
+
+height = 24
+
+
+Даже для vertical ориентации пока оставляй один базовый дефолт.
+Ориентация меняется уже после создания.
+
+
+---
+
+property_schema
+
+Добавь:
+
+orientation
+
+data_type = "str"
+
+required = true
+
+default = "horizontal"
+
+editor = "dropdown"
+
+allowed_values = ["horizontal", "vertical"]
+
+
+value
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+minimum
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+maximum
+
+data_type = "int"
+
+required = true
+
+default = 100
+
+editor = "integer"
+
+
+step
+
+data_type = "int"
+
+required = true
+
+default = 1
+
+editor = "integer"
+
+
+
+---
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+
+---
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+
+---
+
+Qt-класс
+
+qt_class_name = "QSlider"
+
+
+
+---
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Slider отображается в группе Numbers
+
+drag source передает type_name = "QSlider"
+
+
+Не переходи дальше, пока палитра не работает корректно.
+
+
+---
+
+6. Добавь QSlider в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+
+---
+
+В create_widget(entity)
+
+Если entity.type == "QSlider":
+
+создавай QSlider
+
+
+
+---
+
+В apply_properties(widget, entity)
+
+Поддержи:
+
+1. setOrientation(...)
+
+
+2. setMinimum(...)
+
+
+3. setMaximum(...)
+
+
+4. setSingleStep(...)
+
+
+5. setValue(...)
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй в таком порядке:
+
+1. orientation
+
+
+2. minimum
+
+
+3. maximum
+
+
+4. step
+
+
+5. value
+
+
+
+
+---
+
+Почему это важно
+
+Диапазон должен быть установлен до значения.
+Ориентация лучше ставить первой, чтобы виджет сразу приводился к нужному режиму.
+
+
+---
+
+7. Добавь mapping orientation в WidgetFactory
+
+Сделай helper:
+
+_map_orientation(value: str) -> Qt.Orientation
+
+
+
+---
+
+Правило
+
+"horizontal" → Qt.Horizontal
+
+"vertical" → Qt.Vertical
+
+
+Не дублируй этот mapping в нескольких местах.
+Используй один helper и в factory, и в exporter/importer, если возможно через общий utility.
+
+
+---
+
+8. Добавь QSlider в PropertyPanel
+
+Панель свойств должна показывать QSlider как обычный leaf-объект.
+
+
+---
+
+Основное
+
+type read-only
+
+name
+
+parent read-only
+
+
+
+---
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+
+---
+
+Свойства
+
+orientation
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+
+---
+
+Типы редакторов
+
+Используй:
+
+orientation → dropdown
+
+value → QSpinBox
+
+minimum → QSpinBox
+
+maximum → QSpinBox
+
+step → QSpinBox
+
+
+
+---
+
+9. Нормализуй применение изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+
+---
+
+Для orientation
+
+update_entity_property(entity_id, "orientation", new_value)
+
+
+Для value
+
+update_entity_property(entity_id, "value", new_value)
+
+
+Для minimum
+
+update_entity_property(entity_id, "minimum", new_value)
+
+
+Для maximum
+
+update_entity_property(entity_id, "maximum", new_value)
+
+
+Для step
+
+update_entity_property(entity_id, "step", new_value)
+
+
+
+---
+
+10. Добавь нормализацию свойств QSlider
+
+Сделай отдельный helper, не смешивай его со spinbox helper.
+
+Например:
+
+_normalize_slider_properties(properties: dict) -> dict
+
+
+
+---
+
+Правило 1
+
+Если orientation не входит в:
+
+"horizontal"
+
+"vertical"
+
+
+то ставь:
+
+"horizontal"
+
+
+
+---
+
+Правило 2
+
+Если minimum > maximum:
+
+при установке minimum подними maximum = minimum
+
+при установке maximum опусти minimum = maximum
+
+
+
+---
+
+Правило 3
+
+Если value < minimum:
+
+ставь value = minimum
+
+
+Правило 4
+
+Если value > maximum:
+
+ставь value = maximum
+
+
+Правило 5
+
+Если step <= 0:
+
+ставь step = 1
+
+
+
+---
+
+11. Реши вопрос геометрии при смене ориентации
+
+На этой очереди не вводи автоматический обмен width/height при смене orientation.
+
+Зафиксируй правило:
+
+смена orientation не меняет geometry автоматически
+
+пользователь сам меняет размер, если хочет вертикальный или горизонтальный вид
+
+
+Это проще и устойчивее.
+
+
+---
+
+12. Проверь, что CanvasEditor не требует специальных изменений
+
+QSlider должен работать через LeafItemView.
+
+Проверь:
+
+создается ли виджет
+
+выбирается ли
+
+refresh корректно применяет orientation и значение
+
+move и resize работают без специальных веток
+
+
+Если нет — исправляй на уровне WidgetFactory и property pipeline.
+
+
+---
+
+13. Проверь serializer
+
+QSlider не требует специальных кейсов в serializer.
+
+Проверь только, что JSON хранит:
+
+"properties": {
+  "orientation": "horizontal",
+  "value": 25,
+  "minimum": 0,
+  "maximum": 100,
+  "step": 5
+}
+
+
+---
+
+14. Добавь экспорт QSlider в PythonExporter
+
+Добавь отдельную ветку для QSlider.
+
+
+---
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setOrientation(...)
+
+
+5. setMinimum(...)
+
+
+6. setMaximum(...)
+
+
+7. setSingleStep(...)
+
+
+8. setValue(...)
+
+
+
+
+---
+
+Пример
+
+self.slider_1 = QSlider(self)
+self.slider_1.setObjectName("slider_1")
+self.slider_1.setGeometry(100, 80, 140, 24)
+self.slider_1.setOrientation(Qt.Horizontal)
+self.slider_1.setMinimum(0)
+self.slider_1.setMaximum(100)
+self.slider_1.setSingleStep(5)
+self.slider_1.setValue(25)
+
+
+---
+
+15. Добавь импорт QSlider в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QSlider(parent)
+
+setOrientation(...)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setValue(...)
+
+
+
+---
+
+Восстанавливай свойства
+
+orientation
+
+minimum
+
+maximum
+
+step
+
+value
+
+
+После разбора прогоняй через helper нормализации.
+
+
+---
+
+16. Добавь parsing orientation из Python
+
+Распознавай:
+
+Qt.Horizontal → "horizontal"
+
+Qt.Vertical → "vertical"
+
+
+Сделай один helper importer-а, не разбрасывай это по месту.
+
+
+---
+
+17. Проверь round-trip для QSlider
+
+Сделай обязательный цикл:
+
+1. создать QSlider в редакторе
+
+
+2. изменить:
+
+orientation
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать в .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+18. Подготовь тестовые сценарии для QSlider
+
+Закрывай подэтап только если проходят все.
+
+
+---
+
+Сценарий 1
+
+Создание
+
+создать QSlider
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+
+---
+
+Сценарий 2
+
+Горизонтальный режим
+
+orientation = horizontal
+
+value = 25
+
+minimum = 0
+
+maximum = 100
+
+step = 5
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+
+
+---
+
+Сценарий 3
+
+Вертикальный режим
+
+orientation = vertical
+
+
+Проверить:
+
+виджет перестроился визуально
+
+JSON обновился
+
+
+
+---
+
+Сценарий 4
+
+Нормализация диапазона
+
+выставить minimum = 80
+
+потом maximum = 20
+
+
+Проверить:
+
+документ остался валидным
+
+minimum/maximum/value согласованы
+
+
+
+---
+
+Сценарий 5
+
+Нормализация step
+
+выставить step = 0
+
+
+Проверить:
+
+значение нормализовано
+
+документ валиден
+
+
+
+---
+
+Сценарий 6
+
+JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+
+---
+
+Сценарий 7
+
+Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+
+---
+
+19. Зафиксируй критерий завершения QSlider
+
+Считай QSlider полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+
+
+---
+
+20. Что делать сразу после закрытия QSlider
+
+Переходи к:
+
+Подэтап D — QProgressBar
+
+Делай по той же схеме.
+Подключай свойства:
+
+value
+
+minimum
+
+maximum
+
+text_visible
+
+
+И не меняй архитектуру.

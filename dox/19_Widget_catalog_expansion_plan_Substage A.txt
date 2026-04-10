@@ -1,0 +1,925 @@
+Подэтап A — QSpinBox
+
+Подключай QSpinBox как первый новый тип после фиксации ядра.
+Закрывай его полностью, прежде чем переходить к QDoubleSpinBox.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QSpinBox проходил полный цикл:
+
+виден в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери структуры и свойств
+
+
+
+---
+
+2. Зафиксируй модель QSpinBox
+
+Считай QSpinBox обычным leaf-объектом.
+
+
+---
+
+Тип
+
+type_name = "QSpinBox"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+
+---
+
+3. Зафиксируй набор свойств QSpinBox
+
+Подключай только необходимый и устойчивый набор.
+
+
+---
+
+Обязательные свойства
+
+value: int
+
+minimum: int
+
+maximum: int
+
+step: int
+
+prefix: str
+
+suffix: str
+
+
+
+---
+
+Значения по умолчанию
+
+value = 0
+
+minimum = 0
+
+maximum = 99
+
+step = 1
+
+prefix = ""
+
+suffix = ""
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+wrapping
+
+accelerated
+
+displayIntegerBase
+
+specialValueText
+
+alignment
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QSpinBox в WidgetRegistry
+
+В registry/builtins.py создай полное определение типа.
+
+
+---
+
+Зафиксируй
+
+type_name = "QSpinBox"
+
+display_name = "Spin Box"
+
+category = "Numbers"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+creatable_by_user = true
+
+name_prefix = "spin_box"
+
+
+
+---
+
+default_size
+
+Возьми, например:
+
+width = 100
+
+height = 26
+
+
+
+---
+
+property_schema
+
+Добавь:
+
+value
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+minimum
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+maximum
+
+data_type = "int"
+
+required = true
+
+default = 99
+
+editor = "integer"
+
+
+step
+
+data_type = "int"
+
+required = true
+
+default = 1
+
+editor = "integer"
+
+
+prefix
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+suffix
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+
+---
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+
+---
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+
+---
+
+Qt-класс
+
+qt_class_name = "QSpinBox"
+
+
+
+---
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь, что QSpinBox попадает в палитру
+
+После добавления в registry проверь:
+
+группа Numbers появилась, если ее еще не было
+
+Spin Box отображается в палитре
+
+drag source отдает type_name = "QSpinBox"
+
+
+Не переходи дальше, пока палитра не показывает тип корректно.
+
+
+---
+
+6. Добавь QSpinBox в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+
+---
+
+В create_widget(entity)
+
+Если entity.type == "QSpinBox":
+
+создавай QSpinBox
+
+
+
+---
+
+В apply_properties(widget, entity)
+
+Поддержи:
+
+1. setMinimum(...)
+
+
+2. setMaximum(...)
+
+
+3. setSingleStep(...)
+
+
+4. setPrefix(...)
+
+
+5. setSuffix(...)
+
+
+6. setValue(...)
+
+
+
+
+---
+
+Порядок применения свойств обязателен
+
+Сначала ставь диапазон, потом шаг, потом текстовые префиксы/суффиксы, потом значение.
+
+Правильный порядок:
+
+1. minimum
+
+
+2. maximum
+
+
+3. step
+
+
+4. prefix
+
+
+5. suffix
+
+
+6. value
+
+
+
+
+---
+
+Почему это важно
+
+Если сначала выставить value, а потом сузить диапазон, можно получить побочные коррекции значения самим виджетом.
+
+
+---
+
+7. Добавь QSpinBox в PropertyPanel
+
+Панель свойств должна показывать QSpinBox как обычный leaf-объект.
+
+
+---
+
+Основное
+
+type read-only
+
+name
+
+parent read-only
+
+
+
+---
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+
+---
+
+Свойства
+
+value
+
+minimum
+
+maximum
+
+step
+
+prefix
+
+suffix
+
+
+
+---
+
+Типы редакторов
+
+Используй:
+
+value → QSpinBox
+
+minimum → QSpinBox
+
+maximum → QSpinBox
+
+step → QSpinBox
+
+prefix → QLineEdit
+
+suffix → QLineEdit
+
+
+
+---
+
+8. Нормализуй применение изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+
+---
+
+Для value
+
+update_entity_property(entity_id, "value", new_value)
+
+
+Для minimum
+
+update_entity_property(entity_id, "minimum", new_value)
+
+
+Для maximum
+
+update_entity_property(entity_id, "maximum", new_value)
+
+
+Для step
+
+update_entity_property(entity_id, "step", new_value)
+
+
+Для prefix
+
+update_entity_property(entity_id, "prefix", new_value)
+
+
+Для suffix
+
+update_entity_property(entity_id, "suffix", new_value)
+
+
+
+---
+
+9. Добавь корректировку зависимых свойств на уровне документа
+
+Для QSpinBox нельзя оставлять заведомо конфликтные значения.
+
+В FormDocument или в контроллере перед записью обеспечь базовую нормализацию:
+
+
+---
+
+Правило 1
+
+Если minimum > maximum:
+
+либо подними maximum до minimum
+
+либо опусти minimum до maximum
+
+
+Для устойчивости первой версии делай:
+
+при установке minimum, если он стал больше maximum, подними maximum = minimum
+
+при установке maximum, если он стал меньше minimum, опусти minimum = maximum
+
+
+
+---
+
+Правило 2
+
+Если value < minimum:
+
+ставь value = minimum
+
+
+Правило 3
+
+Если value > maximum:
+
+ставь value = maximum
+
+
+Правило 4
+
+Если step <= 0:
+
+ставь step = 1
+
+
+
+---
+
+10. Добавь helper нормализации spinbox-свойств
+
+Сделай отдельный helper, а не раскидывай эту логику по месту.
+
+Например:
+
+_normalize_spinbox_properties(properties: dict) -> dict
+
+
+Применяй его:
+
+после изменения любого spinbox-параметра
+
+при импорте из Python
+
+при чтении JSON, если нужно
+
+
+
+---
+
+11. Убедись, что CanvasEditor не требует специальных изменений
+
+QSpinBox — leaf-тип.
+Он должен работать через уже существующий LeafItemView.
+
+Проверь только:
+
+создается ли реальный QSpinBox
+
+отображается ли на canvas
+
+выбирается ли кликом
+
+двигается ли
+
+меняет ли размер
+
+refresh корректно применяет свойства
+
+
+Если нет — исправляй на уровне WidgetFactory и LeafItemView, а не строй специальный view.
+
+
+---
+
+12. Добавь QSpinBox в serializer без специальных кейсов
+
+Так как это обычный leaf-объект, никаких специальных веток в serializer не нужно.
+
+Проверь только, что в JSON попадают свойства:
+
+"properties": {
+  "value": 5,
+  "minimum": 0,
+  "maximum": 100,
+  "step": 1,
+  "prefix": "",
+  "suffix": " mm"
+}
+
+
+---
+
+13. Добавь экспорт QSpinBox в PythonExporter
+
+В exporter добавь отдельную ветку для QSpinBox.
+
+
+---
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimum(...)
+
+
+5. setMaximum(...)
+
+
+6. setSingleStep(...)
+
+
+7. setPrefix(...) — если не пусто
+
+
+8. setSuffix(...) — если не пусто
+
+
+9. setValue(...)
+
+
+
+
+---
+
+Пример
+
+self.spin_box_1 = QSpinBox(self)
+self.spin_box_1.setObjectName("spin_box_1")
+self.spin_box_1.setGeometry(100, 80, 100, 26)
+self.spin_box_1.setMinimum(0)
+self.spin_box_1.setMaximum(99)
+self.spin_box_1.setSingleStep(1)
+self.spin_box_1.setSuffix(" mm")
+self.spin_box_1.setValue(5)
+
+
+---
+
+14. Добавь импорт QSpinBox в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QSpinBox(parent)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setPrefix(...)
+
+setSuffix(...)
+
+setValue(...)
+
+
+
+---
+
+Восстанавливай свойства в ParsedEntity
+
+minimum
+
+maximum
+
+step
+
+prefix
+
+suffix
+
+value
+
+
+После полного разбора нормализуй через helper spinbox-свойств.
+
+
+---
+
+15. Проверь round-trip для QSpinBox
+
+Сделай обязательный цикл:
+
+1. создать QSpinBox в редакторе
+
+
+2. изменить:
+
+value
+
+minimum
+
+maximum
+
+step
+
+prefix
+
+suffix
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать в .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+16. Подготовь тестовые сценарии для QSpinBox
+
+Закрывай подэтап только если проходят все.
+
+
+---
+
+Сценарий 1
+
+Создание
+
+создать QSpinBox
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+
+---
+
+Сценарий 2
+
+Свойства
+
+поставить value = 5
+
+minimum = 0
+
+maximum = 20
+
+step = 2
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+
+
+---
+
+Сценарий 3
+
+Префикс/суффикс
+
+prefix = "$ "
+
+suffix = " kg"
+
+
+Проверить:
+
+виджет показывает их корректно
+
+JSON обновился
+
+
+
+---
+
+Сценарий 4
+
+Нормализация диапазона
+
+выставить minimum = 50
+
+потом maximum = 10
+
+
+Проверить:
+
+документ остался валидным
+
+minimum/maximum/value пришли в согласованное состояние
+
+
+
+---
+
+Сценарий 5
+
+JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+
+---
+
+Сценарий 6
+
+Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+
+---
+
+17. Зафиксируй критерий завершения QSpinBox
+
+Считай QSpinBox полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+
+
+---
+
+18. Что делать сразу после закрытия QSpinBox
+
+Переходи к:
+
+Подэтап B — QDoubleSpinBox
+
+Делай по той же схеме, но с учетом float-свойств:
+
+value
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+prefix
+
+suffix
+
+
+Не меняй архитектуру.
+Расширяй только уже зафиксированный pipeline.

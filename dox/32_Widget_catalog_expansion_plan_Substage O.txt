@@ -1,0 +1,798 @@
+Подэтап N — QFontComboBox
+
+Подключай QFontComboBox как следующий leaf-виджет после закрытия QCalendarWidget.
+Архитектуру не меняй. Повтори тот же pipeline.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QFontComboBox проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QFontComboBox
+
+Считай QFontComboBox обычным leaf-объектом.
+
+Тип
+
+type_name = "QFontComboBox"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Input"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QFontComboBox"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+current_font_family: str
+
+
+Значение по умолчанию
+
+Зафиксируй:
+
+current_font_family = ""
+
+
+Пустая строка означает:
+
+не навязывать конкретный шрифт
+
+оставить системное текущее состояние
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+font_filters
+
+writing_system
+
+предпросмотр шрифта
+
+сложные font-параметры
+
+кастомные модели шрифтов
+
+
+Сначала закрой базовую устойчивую версию.
+
+
+---
+
+4. Добавь QFontComboBox в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QFontComboBox"
+
+display_name = "Font Combo Box"
+
+category = "Input"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Input"
+
+creatable_by_user = true
+
+name_prefix = "font_combo_box"
+
+
+default_size
+
+Возьми:
+
+width = 180
+
+height = 26
+
+
+property_schema
+
+current_font_family
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+На первом проходе этого достаточно.
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Font Combo Box появился в группе Input
+
+drag source передает type_name = "QFontComboBox"
+
+
+
+---
+
+6. Подключи создание QFontComboBox в FormDocument
+
+Специальной логики не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь нормализацию свойств QFontComboBox
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_font_combo_box_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если current_font_family отсутствует:
+
+ставь ""
+
+
+Правило 2
+
+Всегда приводи current_font_family к str
+
+Правило 3
+
+Не проверяй на этом этапе существование шрифта в системе на уровне документа.
+
+Проверку наличия шрифта делай мягко на уровне factory:
+
+если шрифт не найден, не падать
+
+оставить системное текущее значение
+
+
+
+---
+
+8. Добавь QFontComboBox в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QFontComboBox":
+
+создавай QFontComboBox
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. если current_font_family не пуст:
+
+создать QFont
+
+установить family
+
+вызвать setCurrentFont(...)
+
+
+
+
+
+---
+
+Правило
+
+Если current_font_family пуст:
+
+ничего не применять
+
+
+Если family не существует:
+
+не падать
+
+оставить виджет в стандартном состоянии
+
+
+
+---
+
+9. Добавь helper применения шрифта
+
+Сделай helper:
+
+_apply_font_family(widget, family_name: str) -> None
+
+
+Логика:
+
+1. если строка пустая — выйти
+
+
+2. создать QFont(family_name)
+
+
+3. вызвать setCurrentFont(...)
+
+
+
+Не дублируй это по коду.
+
+
+---
+
+10. Добавь refresh для QFontComboBox
+
+Проверь, что refresh корректно переустанавливает:
+
+current_font_family
+
+
+После изменения из PropertyPanel виджет на canvas должен обновляться без полного rebuild canvas.
+
+
+---
+
+11. Добавь QFontComboBox в PropertyPanel
+
+Панель свойств должна показывать QFontComboBox как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+current_font_family
+
+
+Тип редактора
+
+На первом проходе используй:
+
+current_font_family → QLineEdit
+
+
+
+---
+
+Почему пока QLineEdit
+
+Потому что это самый прямой и стабильный способ закрыть полный pipeline:
+
+document
+
+serializer
+
+exporter
+
+importer
+
+
+Отдельный редактор выбора шрифта в PropertyPanel можно добавить позже как UX-улучшение.
+
+
+---
+
+12. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для current_font_family
+
+update_entity_property(entity_id, "current_font_family", new_value)
+
+
+После изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. нормализация font-свойств
+
+
+3. flush_json_snapshot()
+
+
+4. canvas.refresh_view(entity_id)
+
+
+5. property_panel.rebuild()
+
+
+
+
+---
+
+13. Проверь работу CanvasEditor
+
+QFontComboBox не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+14. Проверь serializer
+
+QFontComboBox не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "current_font_family": "Arial"
+}
+
+Или:
+
+"properties": {
+  "current_font_family": ""
+}
+
+
+---
+
+15. Добавь экспорт QFontComboBox в PythonExporter
+
+В exporter добавь отдельную ветку для QFontComboBox.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. если family не пуст:
+
+setCurrentFont(QFont("..."))
+
+
+
+
+
+---
+
+Пример
+
+self.font_combo_box_1 = QFontComboBox(self)
+self.font_combo_box_1.setObjectName("font_combo_box_1")
+self.font_combo_box_1.setGeometry(100, 80, 180, 26)
+self.font_combo_box_1.setCurrentFont(QFont("Arial"))
+
+
+---
+
+Импорты
+
+Если в документе есть QFontComboBox, добавляй импорт:
+
+QFontComboBox из QtWidgets
+
+QFont из QtGui
+
+
+
+---
+
+16. Добавь helper генерации QFont(...) в exporter
+
+Сделай helper:
+
+_emit_qfont(font_family: str) -> str
+
+
+Пример:
+
+"Arial" → QFont("Arial")
+
+
+Не собирай это выражение руками в нескольких местах.
+
+
+---
+
+17. Добавь импорт QFontComboBox в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QFontComboBox(parent)
+
+setCurrentFont(QFont(...))
+
+
+
+---
+
+Восстанавливай свойства
+
+current_font_family
+
+
+
+---
+
+Parsing QFont(...)
+
+Сделай helper importer-а:
+
+_parse_qfont_call(node) -> str | None
+
+
+Он должен распознавать:
+
+QFont("Arial") → "Arial"
+
+
+На этом этапе поддержи только простой случай с family.
+
+
+---
+
+18. Не поддерживай на этом этапе сложные font-конструкторы
+
+Если importer встретил:
+
+QFont("Arial", 12, ...)
+
+дополнительные параметры
+
+font filters
+
+
+считай это unsupported case для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+19. Проверь round-trip для QFontComboBox
+
+Сделай обязательный цикл:
+
+1. создать QFontComboBox в редакторе
+
+
+2. изменить:
+
+current_font_family
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+20. Подготовь тестовые сценарии для QFontComboBox
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QFontComboBox
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — задание шрифта
+
+задать:
+
+current_font_family = "Arial"
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+виджет показывает выбранный шрифт корректно
+
+
+Сценарий 3 — пустое значение
+
+задать:
+
+current_font_family = ""
+
+
+
+Проверить:
+
+документ валиден
+
+exporter/importer работают
+
+
+Сценарий 4 — несуществующий шрифт
+
+задать:
+
+current_font_family = "SomeUnknownFontFamily"
+
+
+
+Проверить:
+
+документ валиден
+
+factory не падает
+
+exporter/importer не ломаются
+
+
+Сценарий 5 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 6 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 7 — вложенный контекст
+
+создать QFontComboBox внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+21. Проверь работу в special-container контекстах
+
+QFontComboBox как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства.
+
+
+---
+
+22. Зафиксируй критерий завершения QFontComboBox
+
+Считай QFontComboBox полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+23. Что делать сразу после закрытия QFontComboBox
+
+Переходи к:
+
+Подэтап O — QKeySequenceEdit
+
+Подключай по той же схеме.
+На первом проходе бери только свойство:
+
+key_sequence
+
+
+Храни его в строковой форме.

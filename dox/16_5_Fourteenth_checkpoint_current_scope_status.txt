@@ -1,0 +1,199 @@
+Статус четырнадцатой рабочей контрольной точки
+
+Текущая область фиксации
+
+Этот статус-файл фиксирует состояние checkpoint 16 для текущего реально реализованного состава конструктора.
+
+Важное правило текущей фиксации:
+
+если типы или семейства объектов еще отсутствуют в кодовой базе на этом этапе и вынесены в последующие этапы наполнения каталога виджетов, они сейчас не считаются блокером закрытия архитектурной стабилизации.
+
+На текущий момент это относится к:
+
+QStackedWidget
+QToolBox
+StackPage
+ToolPage
+
+Эти типы остаются вне текущей области и должны вводиться на последующих этапах развития конструктора согласно дальнейшим файлам в папке dox.
+
+
+---
+
+1. Что считается закрытым в текущей области
+
+Закрыты и подтверждены тестами:
+
+единый источник истины в FormDocument
+
+мутации формы только через DocumentController
+
+CanvasEditor не хранит независимую модель формы
+
+PropertyPanel не хранит независимую модель формы
+
+serializer не зависит от UI
+
+exporter строится только из документа
+
+importer не пишет напрямую в canvas
+
+selection logic опирается на DocumentController.state.selected_entity_id
+
+CanvasEditor только отображает selection
+
+PropertyPanel перестраивается от текущего selected state
+
+delete leaf/container/special-container сценарии не оставляют битого состояния
+
+close_document корректно очищает editor state и закрывает FormWindow
+
+create/load/save/export/import работают как единый цикл
+
+JSON snapshot синхронизирован с документом после завершенных операций
+
+JSON snapshot не обновляется в середине drag-preview до commit
+
+special-container текущего состава работают по единым паттернам:
+
+QTabWidget
+QScrollArea
+QSplitter
+QWizard
+
+CanvasEditor стабилизирован для текущих типов:
+
+rebuild_all
+refresh_view
+resolve_drop_parent
+get_visual_parent_for_entity
+
+PropertyPanel стабилизирован для текущих типов
+
+PropertyEditorFactory стабилизирован для текущих используемых редакторов
+
+PythonExporter стабилизирован
+
+PythonImporter стабилизирован
+
+round-trip document -> python -> document -> python подтвержден
+
+
+---
+
+2. Что входит в текущую минимально-достаточную зафиксированную версию
+
+Root
+
+QWidget
+QDialog
+
+Leaf
+
+QLabel
+QPushButton
+QLineEdit
+QCheckBox
+QRadioButton
+QComboBox
+
+Обычные контейнеры
+
+QWidget
+QFrame
+QGroupBox
+
+Special-container
+
+QTabWidget
+QScrollArea
+QSplitter
+QWizard
+
+Internal entities
+
+TabPage
+ContainerContent
+SplitterPane
+WizardPage
+
+Системные модули
+
+FormDocument
+WidgetRegistry
+DocumentController
+CanvasEditor
+PropertyPanel
+FormSerializer
+PythonExporter
+PythonImporter
+
+
+---
+
+3. Что подтверждено отдельными тестовыми слоями
+
+PropertyPanel smoke
+
+CanvasEditor smoke
+
+JSON snapshot pipeline smoke
+
+final stabilization smoke
+
+controller pipeline smoke
+
+Python exporter smoke
+
+Python importer smoke
+
+file-based export/import case smoke
+
+editor workflow smoke
+
+validation-after-load/import smoke
+
+
+---
+
+4. Текущее тестовое подтверждение
+
+На момент фиксации текущей области проходит 78 тестов.
+
+Они покрывают:
+
+selection
+property panel
+canvas rebuild
+drop parent resolution
+snapshot synchronization
+close/load/import behavior
+export/import
+workflow round-trip
+защиту от невалидного load/import
+
+
+---
+
+5. Что остается вне текущей области
+
+Не считать незакрытым пунктом текущей стабилизации отсутствие:
+
+QStackedWidget
+QToolBox
+StackPage
+ToolPage
+
+Их отсутствие не должно останавливать переход к следующему этапу развития конструктора, если дальнейшие файлы dox действительно вводят их позже отдельными стадиями.
+
+
+---
+
+6. Практический вывод
+
+Для текущего реально собранного набора типов архитектурная стабилизация checkpoint 16 считается закрытой.
+
+Следующий шаг после этой фиксации:
+
+не перестраивать базовую архитектуру заново,
+а переходить к следующему этапу развития конструктора и расширению каталога поддерживаемых объектов.

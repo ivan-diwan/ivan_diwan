@@ -1,0 +1,172 @@
+Статус текущей области расширения каталога виджетов
+
+Этот status-файл фиксирует состояние линии развития после закрытия
+подэтапов A-T и поздней итерации углубления полезных data-объектов.
+
+Главное правило текущей фиксации:
+
+если в более ранних dox-файлах встречаются более узкие или временные
+ограничения, но более поздние файлы этой же линии явно расширяют scope,
+ориентироваться нужно на более поздние файлы.
+
+Для текущей области это относится к поздним подэтапам углубления:
+
+QTableWidget.cell_values
+QTreeWidget.tree_items
+QListWidget.current_text
+
+Они уже считаются частью текущей завершенной линии, а не отклонением от нее.
+
+
+---
+
+1. На какие файлы dox опирается текущая фиксация
+
+Базовая линия:
+
+17_Constructor_development_stage.txt
+18_Widget_catalog_expansion_plan.txt
+19_Widget_catalog_expansion_plan_Substage A.txt
+20_Widget_catalog_expansion_plan_Substage B.txt
+21_Widget_catalog_expansion_plan_Substage C.txt
+22_Widget_catalog_expansion_plan_Substage D.txt
+23_Widget_catalog_expansion_plan_Substage E.txt
+24_Widget_catalog_expansion_plan_Substage F.txt
+25_Widget_catalog_expansion_plan_Substage G.txt
+26_Widget_catalog_expansion_plan_Substage H.txt
+27_Widget_catalog_expansion_plan_Substage I.txt
+28_Widget_catalog_expansion_plan_Substage J.txt
+29_Widget_catalog_expansion_plan_Substage K.txt
+30_Widget_catalog_expansion_plan_Substage L.txt
+31_Widget_catalog_expansion_plan_Substage M.txt
+32_Widget_catalog_expansion_plan_Substage O.txt
+33_Widget_catalog_expansion_plan_Substage .txt
+34_Widget_catalog_expansion_plan_Substage .txt
+
+Поздняя итерация углубления полезных data-объектов:
+
+35_Widget_catalog_expansion_plan_Substage .txt
+36_Widget_catalog_expansion_plan_Substage .txt
+37_Widget_catalog_expansion_plan_Substage .txt
+
+
+---
+
+2. Что считается закрытым в текущей области
+
+Закрыты полным циклом:
+
+QSpinBox
+QDoubleSpinBox
+QSlider
+QProgressBar
+QTextEdit
+QPlainTextEdit
+QListWidget
+QTableWidget
+QTreeWidget
+QDateEdit
+QTimeEdit
+QDateTimeEdit
+QCalendarWidget
+QFontComboBox
+QKeySequenceEdit
+QDial
+QLCDNumber
+QListView
+QTreeView
+QTableView
+
+Дополнительно закрыты поздние полезные углубления:
+
+QTableWidget.cell_values
+QTreeWidget.tree_items
+QListWidget.current_text
+
+
+---
+
+3. Что значит "закрыт полным циклом"
+
+Тип считается закрытым только если подтверждены все слои:
+
+WidgetRegistry
+property schema
+PropertyPanel
+WidgetFactory
+FormDocument normalization
+DocumentValidator
+JSON serializer round-trip
+PythonExporter
+PythonImporter
+smoke / round-trip tests
+
+Если хотя бы один из этих слоев не был бы готов, тип не должен был бы
+считаться завершенным.
+
+
+---
+
+4. Что подтверждено по коду и тестам
+
+На момент этой фиксации проходит расширенная регрессия:
+
+183 теста OK
+
+Эта проверка покрывает:
+
+PropertyPanel
+CanvasEditor
+snapshot pipeline
+controller pipeline
+final stabilization
+load/import validation
+Python exporter
+Python importer
+file-based export/import cases
+editor workflow
+smoke-наборы по новым типам каталога
+
+
+---
+
+5. Практический вывод по текущей линии
+
+Текущая документированная линия расширения каталога виджетов считается
+закрытой.
+
+После добавления QTableView и прохождения полной регрессии в этой линии
+не остается незавершенных обязательных подэтапов.
+
+Поздние углубления по data-объектам тоже считаются закрытыми.
+
+
+---
+
+6. Что не считать незакрытым хвостом этой линии
+
+Не считать незакрытым хвостом текущей линии:
+
+новую архитектуру редактора
+новый системный UX-слой
+undo/redo
+copy/paste
+multi-select
+layout helpers
+новые data model архитектуры
+
+Это уже относится к следующим этапам развития конструктора, а не к
+незавершенности текущего каталожного блока.
+
+
+---
+
+7. Следующий практический вывод
+
+После этой фиксации:
+
+не возвращаться к текущей линии как к "еще незакрытой",
+если не появятся новые dox-файлы, которые явно расширят ее scope;
+
+переходить к следующему отдельно зафиксированному этапу развития,
+а не продолжать случайное добавление объектов без нового документа.

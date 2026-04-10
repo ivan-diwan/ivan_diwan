@@ -1,0 +1,960 @@
+Подэтап L — QDateTimeEdit
+
+Подключай QDateTimeEdit сразу после полного закрытия QTimeEdit.
+Архитектуру не меняй. Повтори тот же pipeline, но для даты и времени в одной нормализованной строковой форме.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QDateTimeEdit проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QDateTimeEdit
+
+Считай QDateTimeEdit обычным leaf-объектом.
+
+Тип
+
+type_name = "QDateTimeEdit"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QDateTimeEdit"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+datetime: str
+
+minimum_datetime: str
+
+maximum_datetime: str
+
+
+Формат хранения
+
+Храни значение только в формате:
+
+YYYY-MM-DD HH:MM:SS
+
+
+Примеры:
+
+2026-04-08 09:30:00
+
+2025-01-01 00:00:00
+
+2030-12-31 23:59:59
+
+
+
+---
+
+Значения по умолчанию
+
+Зафиксируй:
+
+datetime = "2026-01-01 12:00:00"
+
+minimum_datetime = "1900-01-01 00:00:00"
+
+maximum_datetime = "2100-12-31 23:59:59"
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+display_format
+
+calendar_popup
+
+special_value_text
+
+wrapping
+
+локализацию формата
+
+timezone
+
+отдельное управление секциями даты и времени
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QDateTimeEdit в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QDateTimeEdit"
+
+display_name = "Date Time Edit"
+
+category = "Date and Time"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+creatable_by_user = true
+
+name_prefix = "datetime_edit"
+
+
+default_size
+
+Возьми:
+
+width = 160
+
+height = 26
+
+
+property_schema
+
+datetime
+
+data_type = "datetime_string"
+
+required = true
+
+default = "2026-01-01 12:00:00"
+
+editor = "text"
+
+
+minimum_datetime
+
+data_type = "datetime_string"
+
+required = true
+
+default = "1900-01-01 00:00:00"
+
+editor = "text"
+
+
+maximum_datetime
+
+data_type = "datetime_string"
+
+required = true
+
+default = "2100-12-31 23:59:59"
+
+editor = "text"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Date Time Edit появился в группе Date and Time
+
+drag source передает type_name = "QDateTimeEdit"
+
+
+Не переходи дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QDateTimeEdit в FormDocument
+
+Специальной логики создания не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь отдельный helper для date-time
+
+Сделай единый набор функций для работы с datetime-строкой.
+
+Например создай:
+
+parse_datetime_string(value: str) -> datetime | None
+
+format_datetime_string(value: datetime) -> str
+
+is_valid_datetime_string(value: str) -> bool
+
+normalize_datetime_string(value: str, fallback: str) -> str
+
+
+
+---
+
+Правило
+
+Во всей системе datetime хранится как строка:
+
+YYYY-MM-DD HH:MM:SS
+
+
+А в Qt преобразуется в:
+
+QDateTime
+
+
+
+---
+
+8. Добавь нормализацию свойств QDateTimeEdit
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_datetime_edit_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если datetime отсутствует или невалидно:
+
+ставь дефолтное значение
+
+
+Правило 2
+
+Если minimum_datetime отсутствует или невалидно:
+
+ставь "1900-01-01 00:00:00"
+
+
+Правило 3
+
+Если maximum_datetime отсутствует или невалидно:
+
+ставь "2100-12-31 23:59:59"
+
+
+Правило 4
+
+Если minimum_datetime > maximum_datetime:
+
+при установке minimum_datetime подними maximum_datetime = minimum_datetime
+
+при установке maximum_datetime опусти minimum_datetime = maximum_datetime
+
+
+Правило 5
+
+Если datetime < minimum_datetime:
+
+ставь datetime = minimum_datetime
+
+
+Правило 6
+
+Если datetime > maximum_datetime:
+
+ставь datetime = maximum_datetime
+
+
+
+---
+
+9. Добавь QDateTimeEdit в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QDateTimeEdit":
+
+создавай QDateTimeEdit
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setMinimumDateTime(...)
+
+
+2. setMaximumDateTime(...)
+
+
+3. setDateTime(...)
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй именно так:
+
+1. minimum
+
+
+2. maximum
+
+
+3. current datetime
+
+
+
+
+---
+
+Почему это важно
+
+Сначала фиксируй диапазон, потом текущее значение.
+Иначе виджет может скорректировать значение сам.
+
+
+---
+
+Преобразование строк в QDateTime
+
+Сделай helper:
+
+_to_qdatetime(value: str) -> QDateTime
+
+
+Используй единый формат:
+
+YYYY-MM-DD HH:MM:SS
+
+
+
+---
+
+10. Добавь refresh для QDateTimeEdit
+
+Проверь, что refresh корректно переустанавливает:
+
+minimum_datetime
+
+maximum_datetime
+
+datetime
+
+
+После изменения из PropertyPanel виджет на canvas должен обновляться без полного rebuild canvas.
+
+
+---
+
+11. Добавь QDateTimeEdit в PropertyPanel
+
+Панель свойств должна показывать QDateTimeEdit как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+datetime
+
+minimum_datetime
+
+maximum_datetime
+
+
+Типы редакторов
+
+На первом проходе используй:
+
+datetime → QLineEdit
+
+minimum_datetime → QLineEdit
+
+maximum_datetime → QLineEdit
+
+
+
+---
+
+Подсказка в UI
+
+Для этих полей добавь placeholder:
+
+YYYY-MM-DD HH:MM:SS
+
+
+Не делай пока отдельный popup-календарь или time picker в панели свойств.
+
+
+---
+
+12. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для datetime
+
+update_entity_property(entity_id, "datetime", new_value)
+
+
+Для minimum_datetime
+
+update_entity_property(entity_id, "minimum_datetime", new_value)
+
+
+Для maximum_datetime
+
+update_entity_property(entity_id, "maximum_datetime", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. нормализация datetime-свойств
+
+
+3. flush_json_snapshot()
+
+
+4. canvas.refresh_view(entity_id)
+
+
+5. property_panel.rebuild()
+
+
+
+
+---
+
+13. Проверь работу CanvasEditor
+
+QDateTimeEdit не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+14. Проверь serializer
+
+QDateTimeEdit не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "datetime": "2026-04-08 09:30:00",
+  "minimum_datetime": "2020-01-01 00:00:00",
+  "maximum_datetime": "2030-12-31 23:59:59"
+}
+
+Проверь:
+
+значения хранятся именно как строки
+
+формат единый
+
+JSON round-trip не меняет представление
+
+
+
+---
+
+15. Добавь экспорт QDateTimeEdit в PythonExporter
+
+В exporter добавь отдельную ветку для QDateTimeEdit.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimumDateTime(QDateTime(...))
+
+
+5. setMaximumDateTime(QDateTime(...))
+
+
+6. setDateTime(QDateTime(...))
+
+
+
+
+---
+
+Пример
+
+self.datetime_edit_1 = QDateTimeEdit(self)
+self.datetime_edit_1.setObjectName("datetime_edit_1")
+self.datetime_edit_1.setGeometry(100, 80, 160, 26)
+self.datetime_edit_1.setMinimumDateTime(QDateTime(QDate(2020, 1, 1), QTime(0, 0, 0)))
+self.datetime_edit_1.setMaximumDateTime(QDateTime(QDate(2030, 12, 31), QTime(23, 59, 59)))
+self.datetime_edit_1.setDateTime(QDateTime(QDate(2026, 4, 8), QTime(9, 30, 0)))
+
+
+---
+
+Импорты
+
+Если в документе есть QDateTimeEdit, добавляй импорт:
+
+QDateTimeEdit из QtWidgets
+
+QDateTime, QDate, QTime из QtCore
+
+
+
+---
+
+16. Добавь helper генерации QDateTime(...) в exporter
+
+Сделай helper:
+
+_emit_qdatetime(datetime_string: str) -> str
+
+
+Пример:
+
+"2026-04-08 09:30:00"
+→ "QDateTime(QDate(2026, 4, 8), QTime(9, 30, 0))"
+
+
+Не собирай это выражение руками в нескольких местах.
+
+
+---
+
+17. Добавь импорт QDateTimeEdit в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QDateTimeEdit(parent)
+
+setMinimumDateTime(QDateTime(...))
+
+setMaximumDateTime(QDateTime(...))
+
+setDateTime(QDateTime(...))
+
+
+
+---
+
+Восстанавливай свойства
+
+minimum_datetime
+
+maximum_datetime
+
+datetime
+
+
+
+---
+
+Parsing QDateTime(...)
+
+Сделай helper importer-а:
+
+_parse_qdatetime_call(node) -> str | None
+
+
+Он должен распознавать:
+
+QDateTime(QDate(2026, 4, 8), QTime(9, 30, 0))
+
+и восстанавливать:
+
+"2026-04-08 09:30:00"
+
+
+
+
+---
+
+18. Не поддерживай на этом этапе display format
+
+Если importer встретил:
+
+setDisplayFormat(...)
+
+
+считай это unsupported case для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+19. Проверь round-trip для QDateTimeEdit
+
+Сделай обязательный цикл:
+
+1. создать QDateTimeEdit в редакторе
+
+
+2. изменить:
+
+datetime
+
+minimum_datetime
+
+maximum_datetime
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+20. Подготовь тестовые сценарии для QDateTimeEdit
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QDateTimeEdit
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — базовое значение
+
+задать:
+
+datetime = "2026-04-08 09:30:00"
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+виджет отображает значение корректно
+
+
+Сценарий 3 — диапазон
+
+задать:
+
+minimum_datetime = "2020-01-01 00:00:00"
+
+maximum_datetime = "2030-12-31 23:59:59"
+
+
+
+Проверить:
+
+диапазон применился
+
+JSON обновился
+
+
+Сценарий 4 — нормализация диапазона
+
+выставить minimum_datetime = "2035-01-01 00:00:00"
+
+потом maximum_datetime = "2030-01-01 00:00:00"
+
+
+Проверить:
+
+документ остался валидным
+
+minimum_datetime, maximum_datetime, datetime согласованы
+
+
+Сценарий 5 — значение вне диапазона
+
+диапазон:
+
+minimum_datetime = "2025-01-01 00:00:00"
+
+maximum_datetime = "2025-12-31 23:59:59"
+
+
+потом задать:
+
+datetime = "2026-04-08 09:30:00"
+
+
+
+Проверить:
+
+datetime нормализовано в допустимый диапазон
+
+документ валиден
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QDateTimeEdit внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+21. Проверь работу в special-container контекстах
+
+QDateTimeEdit как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства.
+
+
+---
+
+22. Зафиксируй критерий завершения QDateTimeEdit
+
+Считай QDateTimeEdit полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+23. Что делать сразу после закрытия QDateTimeEdit
+
+Переходи к:
+
+Подэтап M — QCalendarWidget
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+selected_date
+
+minimum_date
+
+maximum_date
+
+
+Не добавляй пока grid visibility, navigation bar и другие дополнительные настройки.

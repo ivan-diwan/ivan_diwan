@@ -1,0 +1,960 @@
+Подэтап J — QDateEdit
+
+Подключай QDateEdit как первый тип из очереди даты и времени.
+Не меняй архитектуру. Повтори тот же pipeline, но с учетом хранения даты в нормализованной строковой форме.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QDateEdit проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QDateEdit
+
+Считай QDateEdit обычным leaf-объектом.
+
+Тип
+
+type_name = "QDateEdit"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QDateEdit"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+date: str
+
+minimum_date: str
+
+maximum_date: str
+
+
+Формат хранения
+
+Храни даты только в формате:
+
+YYYY-MM-DD
+
+
+Примеры:
+
+2026-04-08
+
+2025-01-01
+
+
+
+---
+
+Значения по умолчанию
+
+Зафиксируй:
+
+date = "2026-01-01"
+
+minimum_date = "1900-01-01"
+
+maximum_date = "2100-12-31"
+
+
+Можно выбрать другой дефолтный date, но он должен быть:
+
+валидным
+
+в том же формате
+
+не выходить за диапазон
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+display_format
+
+calendar_popup
+
+special_value_text
+
+wrapping
+
+локализацию формата даты
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QDateEdit в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QDateEdit"
+
+display_name = "Date Edit"
+
+category = "Date and Time"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+creatable_by_user = true
+
+name_prefix = "date_edit"
+
+
+default_size
+
+Возьми:
+
+width = 120
+
+height = 26
+
+
+property_schema
+
+date
+
+data_type = "date_string"
+
+required = true
+
+default = "2026-01-01"
+
+editor = "text"
+
+
+minimum_date
+
+data_type = "date_string"
+
+required = true
+
+default = "1900-01-01"
+
+editor = "text"
+
+
+maximum_date
+
+data_type = "date_string"
+
+required = true
+
+default = "2100-12-31"
+
+editor = "text"
+
+
+Если хочешь, можешь позже добавить отдельный редактор даты, но на первом проходе используй обычное текстовое поле с жесткой нормализацией.
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Date Edit появился в группе Date and Time
+
+drag source передает type_name = "QDateEdit"
+
+
+Не переходи дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QDateEdit в FormDocument
+
+Специальной логики создания не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь отдельный helper для даты
+
+Сделай единый набор функций для работы с датой.
+Не разбрасывай парсинг строк по коду.
+
+Например в utils или отдельном helper-модуле создай:
+
+parse_date_string(value: str) -> date | None
+
+format_date_string(value: date) -> str
+
+is_valid_date_string(value: str) -> bool
+
+normalize_date_string(value: str, fallback: str) -> str
+
+
+
+---
+
+Правило
+
+Во всей системе дата хранится как строка:
+
+YYYY-MM-DD
+
+
+А в Qt преобразуется в:
+
+QDate
+
+
+
+---
+
+8. Добавь нормализацию свойств QDateEdit
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_date_edit_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если date отсутствует или невалидна:
+
+ставь дефолтную дату
+
+
+Правило 2
+
+Если minimum_date отсутствует или невалидна:
+
+ставь "1900-01-01"
+
+
+Правило 3
+
+Если maximum_date отсутствует или невалидна:
+
+ставь "2100-12-31"
+
+
+Правило 4
+
+Если minimum_date > maximum_date:
+
+при установке minimum_date подними maximum_date = minimum_date
+
+при установке maximum_date опусти minimum_date = maximum_date
+
+
+Правило 5
+
+Если date < minimum_date:
+
+ставь date = minimum_date
+
+
+Правило 6
+
+Если date > maximum_date:
+
+ставь date = maximum_date
+
+
+
+---
+
+9. Добавь QDateEdit в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QDateEdit":
+
+создавай QDateEdit
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setMinimumDate(...)
+
+
+2. setMaximumDate(...)
+
+
+3. setDate(...)
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй именно так:
+
+1. minimum
+
+
+2. maximum
+
+
+3. current date
+
+
+
+
+---
+
+Почему это важно
+
+Сначала фиксируй диапазон, потом текущую дату.
+Иначе виджет может скорректировать дату сам.
+
+
+---
+
+Преобразование строк в QDate
+
+Сделай helper:
+
+_to_qdate(value: str) -> QDate
+
+
+Используй единый формат:
+
+YYYY-MM-DD
+
+
+
+---
+
+10. Добавь refresh для QDateEdit
+
+Проверь, что refresh корректно переустанавливает:
+
+minimum_date
+
+maximum_date
+
+date
+
+
+После изменения из PropertyPanel виджет на canvas должен обновляться без полного rebuild canvas.
+
+
+---
+
+11. Добавь QDateEdit в PropertyPanel
+
+Панель свойств должна показывать QDateEdit как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+date
+
+minimum_date
+
+maximum_date
+
+
+Типы редакторов
+
+На первом проходе используй:
+
+date → QLineEdit
+
+minimum_date → QLineEdit
+
+maximum_date → QLineEdit
+
+
+
+---
+
+Подсказка в UI
+
+Для этих полей добавь понятный placeholder:
+
+YYYY-MM-DD
+
+
+Не делай пока отдельный popup-календарь в панели свойств.
+
+
+---
+
+12. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для date
+
+update_entity_property(entity_id, "date", new_value)
+
+
+Для minimum_date
+
+update_entity_property(entity_id, "minimum_date", new_value)
+
+
+Для maximum_date
+
+update_entity_property(entity_id, "maximum_date", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. нормализация date-свойств
+
+
+3. flush_json_snapshot()
+
+
+4. canvas.refresh_view(entity_id)
+
+
+5. property_panel.rebuild()
+
+
+
+
+---
+
+13. Проверь работу CanvasEditor
+
+QDateEdit не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+14. Проверь serializer
+
+QDateEdit не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "date": "2026-04-08",
+  "minimum_date": "2020-01-01",
+  "maximum_date": "2030-12-31"
+}
+
+Проверь:
+
+значения хранятся именно как строки
+
+формат единый
+
+JSON round-trip не меняет представление даты
+
+
+
+---
+
+15. Добавь экспорт QDateEdit в PythonExporter
+
+В exporter добавь отдельную ветку для QDateEdit.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimumDate(QDate(...))
+
+
+5. setMaximumDate(QDate(...))
+
+
+6. setDate(QDate(...))
+
+
+
+
+---
+
+Пример
+
+self.date_edit_1 = QDateEdit(self)
+self.date_edit_1.setObjectName("date_edit_1")
+self.date_edit_1.setGeometry(100, 80, 120, 26)
+self.date_edit_1.setMinimumDate(QDate(2020, 1, 1))
+self.date_edit_1.setMaximumDate(QDate(2030, 12, 31))
+self.date_edit_1.setDate(QDate(2026, 4, 8))
+
+
+---
+
+Импорты
+
+Если в документе есть QDateEdit, добавляй импорт:
+
+QDateEdit из QtWidgets
+
+QDate из QtCore
+
+
+
+---
+
+16. Добавь helper генерации QDate(...) в exporter
+
+Сделай helper:
+
+_emit_qdate(date_string: str) -> str
+
+
+Пример:
+
+"2026-04-08" → "QDate(2026, 4, 8)"
+
+
+Не собирай QDate(...) руками в нескольких местах.
+
+
+---
+
+17. Добавь импорт QDateEdit в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QDateEdit(parent)
+
+setMinimumDate(QDate(...))
+
+setMaximumDate(QDate(...))
+
+setDate(QDate(...))
+
+
+
+---
+
+Восстанавливай свойства
+
+minimum_date
+
+maximum_date
+
+date
+
+
+
+---
+
+Parsing QDate(...)
+
+Сделай helper importer-а:
+
+_parse_qdate_call(node) -> str | None
+
+
+Он должен распознавать:
+
+QDate(2026, 4, 8) → "2026-04-08"
+
+
+
+---
+
+18. Не поддерживай на этом этапе display format
+
+Если importer встретил:
+
+setDisplayFormat(...)
+
+
+считай это unsupported case для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+19. Проверь round-trip для QDateEdit
+
+Сделай обязательный цикл:
+
+1. создать QDateEdit в редакторе
+
+
+2. изменить:
+
+date
+
+minimum_date
+
+maximum_date
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+20. Подготовь тестовые сценарии для QDateEdit
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QDateEdit
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — базовая дата
+
+задать:
+
+date = "2026-04-08"
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+виджет отображает дату корректно
+
+
+Сценарий 3 — диапазон дат
+
+задать:
+
+minimum_date = "2020-01-01"
+
+maximum_date = "2030-12-31"
+
+
+
+Проверить:
+
+диапазон применился
+
+JSON обновился
+
+
+Сценарий 4 — нормализация диапазона
+
+выставить minimum_date = "2035-01-01"
+
+потом maximum_date = "2030-01-01"
+
+
+Проверить:
+
+документ остался валидным
+
+minimum_date, maximum_date, date согласованы
+
+
+Сценарий 5 — дата вне диапазона
+
+диапазон:
+
+minimum_date = "2025-01-01"
+
+maximum_date = "2025-12-31"
+
+
+потом задать:
+
+date = "2026-04-08"
+
+
+
+Проверить:
+
+date нормализована в допустимый диапазон
+
+документ валиден
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QDateEdit внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+21. Проверь работу в special-container контекстах
+
+QDateEdit как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства.
+
+
+---
+
+22. Зафиксируй критерий завершения QDateEdit
+
+Считай QDateEdit полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+23. Что делать сразу после закрытия QDateEdit
+
+Переходи к:
+
+Подэтап K — QTimeEdit
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+time
+
+minimum_time
+
+maximum_time
+
+
+Храни время в нормализованной строковой форме.

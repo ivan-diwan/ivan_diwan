@@ -1,0 +1,1170 @@
+Первая рабочая контрольная точка
+
+Собери строго это состояние:
+
+приложение запускается
+
+есть левое главное окно
+
+работает кнопка Создать
+
+создается новый пустой FormDocument
+
+открывается отдельное окно формы
+
+в нем видна пустая форма заданного размера
+
+слева в панели свойств показываются свойства формы
+
+можно сформировать корректный JSON snapshot
+
+
+Ниже — минимальный обязательный набор классов, файлов и методов для этой точки.
+
+
+---
+
+1. Минимальный набор файлов
+
+Используй только этот набор:
+
+main.py
+app/application.py
+app/bootstrap.py
+controller/editor_state.py
+controller/document_controller.py
+document/models.py
+document/form_document.py
+document/validator.py
+registry/definitions.py
+registry/widget_registry.py
+registry/builtins.py
+serialization/form_serializer.py
+serialization/parser.py
+serialization/writer.py
+ui/main_editor/main_editor_window.py
+ui/palette/palette_panel.py
+ui/properties/property_panel.py
+ui/form_window/form_window.py
+canvas/canvas_editor.py
+utils/ids.py
+utils/naming.py
+utils/geometry.py
+
+На этой контрольной точке не нужны:
+
+factory/widget_factory.py
+
+canvas/views/*
+
+conversion/*
+
+
+
+---
+
+2. Что должно быть реализовано обязательно
+
+Собирай только то, что нужно для пустой формы.
+Не подключай создание объектов палитры на canvas.
+
+
+---
+
+3. document/models.py
+
+Сделай две dataclass-модели.
+
+FormRootModel
+
+Поля:
+
+id: str
+
+type: str
+
+name: str
+
+root_widget_type: str
+
+width: int
+
+height: int
+
+window_title: str
+
+
+Методы:
+
+to_dict(self) -> dict
+
+@classmethod from_dict(cls, data: dict) -> FormRootModel
+
+
+
+---
+
+EntityModel
+
+Поля:
+
+id: str
+
+type: str
+
+parent_id: str
+
+name: str
+
+order: int
+
+geometry: dict
+
+properties: dict
+
+
+Методы:
+
+to_dict(self) -> dict
+
+@classmethod from_dict(cls, data: dict) -> EntityModel
+
+
+
+---
+
+4. utils/geometry.py
+
+Сделай минимум.
+
+Функции:
+
+make_geometry(x: int, y: int, width: int, height: int) -> dict
+
+normalize_geometry(data: dict) -> dict
+
+
+Поведение:
+
+make_geometry возвращает:
+
+{"x": x, "y": y, "width": width, "height": height}
+
+normalize_geometry приводит ключи к этому же виду и валидирует типы
+
+
+
+---
+
+5. utils/ids.py
+
+Сделай простой генератор.
+
+IdGenerator
+
+Поля:
+
+внутренний словарь счетчиков по префиксам
+
+
+Методы:
+
+next(prefix: str) -> str
+
+reset() -> None
+
+
+Поведение:
+
+next("label") возвращает:
+
+label_1
+
+label_2
+
+и т.д.
+
+
+
+Для первой контрольной точки этот генератор нужен уже сейчас, даже если сущности пока не создаются пользователем.
+
+
+---
+
+6. utils/naming.py
+
+Сделай минимальный генератор имен.
+
+Функции:
+
+make_default_name(prefix: str, index: int) -> str
+
+make_unique_name(existing_names: set[str], prefix: str) -> str
+
+
+Для первой контрольной точки этого достаточно.
+
+
+---
+
+7. registry/definitions.py
+
+Сделай минимальные dataclass-описания.
+
+
+---
+
+PropertyDefinition
+
+Поля:
+
+name: str
+
+data_type: str
+
+required: bool
+
+default: object
+
+editor: str
+
+allowed_values: list | None = None
+
+
+Методы:
+
+to_dict()
+
+from_dict(data)
+
+
+
+---
+
+WidgetTypeDefinition
+
+Поля:
+
+type_name: str
+
+display_name: str
+
+category: str
+
+editor_kind: str
+
+palette_visible: bool
+
+palette_group: str
+
+creatable_by_user: bool
+
+name_prefix: str
+
+default_size: dict
+
+property_schema: dict
+
+allowed_parent_types: list | str
+
+allowed_child_types: list | str | None
+
+direct_children_only: bool
+
+special_actions: list[str]
+
+auto_create_children: list[dict]
+
+qt_class_name: str | None
+
+geometry_edit_mode: str
+
+movable: bool
+
+resizable: bool
+
+deletable_directly: bool
+
+
+Методы:
+
+to_dict()
+
+from_dict(data)
+
+
+
+---
+
+8. registry/widget_registry.py
+
+Сделай реестр с базовыми методами.
+
+WidgetRegistry
+
+Внутри:
+
+_types: dict[str, WidgetTypeDefinition]
+
+
+Методы:
+
+register_type(definition: WidgetTypeDefinition) -> None
+
+get_type(type_name: str) -> WidgetTypeDefinition
+
+has_type(type_name: str) -> bool
+
+list_palette_types() -> list[WidgetTypeDefinition]
+
+list_palette_groups() -> list[str]
+
+get_default_size(type_name: str) -> dict
+
+get_default_properties(type_name: str) -> dict
+
+get_name_prefix(type_name: str) -> str
+
+get_property_schema(type_name: str) -> dict
+
+can_parent(parent_type: str, child_type: str) -> bool
+
+
+Для первой контрольной точки can_parent можно сделать простым, но рабочим.
+
+
+---
+
+9. registry/builtins.py
+
+Сделай минимальный встроенный реестр.
+
+Подключи только:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+TabPage
+
+ContainerContent
+
+
+Сделай функцию:
+
+build_builtin_registry() -> WidgetRegistry
+
+
+Требование:
+
+палитра должна уже уметь брать типы из этого реестра
+
+свойства формы и пустого документа не зависят от полного покрытия типов
+
+
+
+---
+
+10. document/validator.py
+
+Сделай минимальный валидатор.
+
+DocumentValidator
+
+Методы:
+
+validate_document(document, registry) -> None
+
+validate_entity(entity, registry) -> None
+
+
+На первой контрольной точке проверяй:
+
+Для документа
+
+есть form_root
+
+form_root.type == "FormRoot"
+
+form_root.root_widget_type входит в:
+
+QWidget
+
+QDialog
+
+
+
+Для сущности
+
+есть все обязательные поля
+
+type существует в registry
+
+есть geometry
+
+есть properties
+
+
+Пока достаточно.
+
+
+---
+
+11. document/form_document.py
+
+Сделай центральную модель документа.
+
+FormDocument
+
+Конструктор должен принимать:
+
+form_root: FormRootModel
+
+registry: WidgetRegistry
+
+validator: DocumentValidator
+
+id_generator: IdGenerator
+
+
+Внутри храни:
+
+form_root
+
+entities_by_id: dict[str, EntityModel]
+
+is_dirty: bool
+
+
+
+---
+
+Реализуй методы чтения
+
+get_form_root() -> FormRootModel
+
+get_entity(entity_id: str) -> EntityModel | None
+
+has_entity(entity_id: str) -> bool
+
+get_children(parent_id: str) -> list[EntityModel]
+
+get_root_entities() -> list[EntityModel]
+
+
+На первой контрольной точке get_descendants() можно тоже сделать, но он еще не критичен.
+
+
+---
+
+Реализуй методы состояния
+
+mark_dirty() -> None
+
+clear_dirty() -> None
+
+
+
+---
+
+Реализуй метод сериализации в модели
+
+to_dict() -> dict
+
+
+Этот метод может вызывать DocumentWriter, но для первой точки допустимо держать простой внутренний вызов serializer снаружи.
+Главное — не дублируй логику бесконтрольно.
+
+
+---
+
+Реализуй classmethod или factory
+
+@classmethod create_new(cls, registry, validator, id_generator, width=1200, height=800, root_widget_type="QWidget") -> FormDocument
+
+
+Он должен:
+
+создать FormRootModel
+
+создать пустой FormDocument
+
+вернуть готовый документ
+
+
+
+---
+
+12. serialization/writer.py
+
+Сделай DocumentWriter.
+
+Метод
+
+to_dict(document: FormDocument) -> dict
+
+
+Формируй структуру:
+
+{
+    "meta": {
+        "format_version": 1,
+        "document_type": "pyside6_form"
+    },
+    "form": ...,
+    "objects": [...]
+}
+
+На первой контрольной точке objects будет пустым списком.
+
+
+---
+
+13. serialization/parser.py
+
+Сделай DocumentParser.
+
+Метод
+
+from_dict(data: dict, registry: WidgetRegistry, validator: DocumentValidator, id_generator: IdGenerator) -> FormDocument
+
+
+Он должен:
+
+прочитать form
+
+создать FormRootModel
+
+создать FormDocument
+
+создать объекты из objects
+
+прогнать валидацию
+
+
+
+---
+
+14. serialization/form_serializer.py
+
+Сделай фасад.
+
+FormSerializer
+
+Методы:
+
+to_dict(document: FormDocument) -> dict
+
+from_dict(data: dict, registry, validator, id_generator) -> FormDocument
+
+save_json(document: FormDocument, path: str) -> None
+
+load_json(path: str, registry, validator, id_generator) -> FormDocument
+
+
+На первой контрольной точке добейся:
+
+новый документ сохраняется в JSON
+
+JSON грузится обратно
+
+документ восстанавливается без потерь
+
+
+
+---
+
+15. controller/editor_state.py
+
+Сделай простой класс состояния.
+
+EditorState
+
+Поля:
+
+active_document = None
+
+active_form_window = None
+
+selected_entity_id = None
+
+current_json_path = None
+
+
+Методы:
+
+clear_document_state()
+
+clear_selection()
+
+
+Этого достаточно.
+
+
+---
+
+16. controller/document_controller.py
+
+Сделай минимальный рабочий контроллер.
+
+Конструктор должен принимать
+
+registry
+
+serializer
+
+validator
+
+id_generator
+
+
+Внутри создай
+
+state = EditorState()
+
+
+
+---
+
+Реализуй методы
+
+new_document() -> FormDocument
+
+Должен:
+
+1. создать новый FormDocument через FormDocument.create_new(...)
+
+
+2. записать его в state.active_document
+
+
+3. очистить выбор
+
+
+4. вернуть документ
+
+
+
+
+---
+
+get_active_document() -> FormDocument | None
+
+Нужен для UI.
+
+
+---
+
+select_entity(entity_id: str | None) -> None
+
+На первой точке достаточно:
+
+если None → очистить выбор
+
+если id есть → сохранить его в state.selected_entity_id
+
+
+
+---
+
+get_selected_entity() -> EntityModel | None
+
+Вернуть выбранную сущность из документа.
+
+
+---
+
+flush_json_snapshot() -> dict
+
+Пока сделай возврат dict через serializer.
+Запись на диск можно пока подключить сразу, но для первой точки достаточно и in-memory snapshot + возможность сохранить в файл.
+
+
+---
+
+Не делай пока
+
+delete
+
+property mutations
+
+drag/drop
+
+page actions
+
+
+
+---
+
+17. ui/palette/palette_panel.py
+
+Сделай минимальную палитру.
+
+PalettePanel
+
+Конструктор принимает:
+
+registry
+
+
+Поведение:
+
+строит список групп
+
+строит список объектов внутри групп
+
+
+На первой контрольной точке:
+
+палитра должна просто отображать типы
+
+drag пока можешь не включать, если это мешает быстро получить рабочее состояние
+
+
+Главное:
+
+палитра уже строится из WidgetRegistry
+
+
+
+---
+
+18. ui/properties/property_panel.py
+
+Сделай простую, но уже рабочую панель свойств.
+
+PropertyPanel
+
+Конструктор принимает:
+
+controller
+
+
+Реализуй методы
+
+show_form_root(form_root: FormRootModel)
+
+clear()
+
+rebuild()
+
+
+
+---
+
+Что должна показывать панель на первой точке
+
+Когда документ открыт и объект не выбран:
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+Поля можно сначала вывести как:
+
+подпись + QLineEdit / QSpinBox / QComboBox
+
+
+
+---
+
+Что должно работать
+
+Изменение этих полей можно пока не коммитить обратно в документ, если хочешь сначала добиться чистой контрольной точки без мутаций.
+Но лучше сразу заложить сигнал на изменение.
+
+Минимум:
+
+панель должна показывать актуальные значения формы
+
+
+
+---
+
+19. ui/form_window/form_window.py
+
+Сделай отдельное окно формы.
+
+FormWindow
+
+Методы:
+
+set_canvas(canvas)
+
+set_window_title(title)
+
+
+Конструктор:
+
+принимает controller
+
+создает пустую центральную область
+
+
+Это окно должно открываться независимо от левого окна.
+
+
+---
+
+20. canvas/canvas_editor.py
+
+Сделай базовый canvas без объектов.
+
+CanvasEditor
+
+Конструктор принимает:
+
+controller
+
+
+Поля:
+
+document
+
+root_size
+
+
+Методы:
+
+bind_document(document)
+
+clear_canvas()
+
+rebuild_all()
+
+show_empty_form()
+
+
+
+---
+
+Поведение
+
+После bind_document(document):
+
+canvas берет form_root
+
+устанавливает размер рабочей области по width/height
+
+отображает пустую форму
+
+
+На первой точке этого достаточно.
+
+
+---
+
+21. ui/main_editor/main_editor_window.py
+
+Сделай главное окно как точку сборки UI.
+
+MainEditorWindow
+
+Конструктор принимает:
+
+controller
+
+registry
+
+
+Внутри создай:
+
+верхние кнопки
+
+PalettePanel
+
+PropertyPanel
+
+кнопку удаления
+
+
+
+---
+
+Реализуй методы
+
+on_create_clicked()
+
+on_load_clicked() пока можно заглушить
+
+on_save_clicked() пока можно заглушить
+
+on_delete_clicked() пока можно заглушить
+
+open_form_window_for_document(document)
+
+
+
+---
+
+Поведение on_create_clicked()
+
+1. вызвать controller.new_document()
+
+
+2. создать FormWindow
+
+
+3. создать CanvasEditor
+
+
+4. передать документ в canvas
+
+
+5. встроить canvas в form window
+
+
+6. открыть form window
+
+
+7. сохранить окно в controller.state.active_form_window
+
+
+8. показать свойства формы в PropertyPanel
+
+
+
+
+---
+
+22. app/bootstrap.py
+
+Собери зависимости.
+
+AppBootstrap.build()
+
+Создай и свяжи:
+
+IdGenerator
+
+DocumentValidator
+
+WidgetRegistry через build_builtin_registry()
+
+FormSerializer
+
+DocumentController
+
+MainEditorWindow
+
+
+Верни:
+
+main_window
+
+при необходимости объект приложения-сборки
+
+
+
+---
+
+23. app/application.py
+
+Сделай EditorApplication.
+
+Метод run()
+
+1. создать QApplication
+
+
+2. вызвать bootstrap
+
+
+3. показать MainEditorWindow
+
+
+4. запустить event loop
+
+
+
+
+---
+
+24. main.py
+
+Сделай только:
+
+создание EditorApplication
+
+вызов run()
+
+
+
+---
+
+25. Что должно заработать после завершения этого блока
+
+Добейся строго следующего:
+
+Сценарий
+
+1. запустить приложение
+
+
+2. увидеть левое окно редактора
+
+
+3. нажать Создать
+
+
+4. получить новый FormDocument
+
+
+5. открыть отдельное окно формы
+
+
+6. увидеть пустую форму размером 1200x800
+
+
+7. увидеть в левой панели свойства формы:
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+
+8. получить корректный JSON snapshot через контроллер/serializer
+
+
+
+
+---
+
+26. JSON на этой точке должен выглядеть так
+
+{
+  "meta": {
+    "format_version": 1,
+    "document_type": "pyside6_form"
+  },
+  "form": {
+    "id": "form_root",
+    "type": "FormRoot",
+    "name": "form",
+    "root_widget_type": "QWidget",
+    "width": 1200,
+    "height": 800,
+    "window_title": ""
+  },
+  "objects": []
+}
+
+Добейся именно этого.
+
+
+---
+
+27. Что не делать до завершения этой точки
+
+Не подключай:
+
+drag&drop из палитры
+
+реальные объекты формы
+
+WidgetFactory
+
+FormItemView
+
+delete selected object
+
+move
+
+resize
+
+special containers
+
+Python export
+
+
+
+---
+
+28. Критерий завершения контрольной точки
+
+Считай этап закрытым только если одновременно выполняются все условия:
+
+приложение стабильно запускается
+
+Создать открывает отдельную форму
+
+документ реально существует в контроллере
+
+canvas показывает форму правильного размера
+
+панель свойств показывает свойства формы
+
+serializer дает валидный JSON
+
+повторный вызов new_document() не ломает приложение
+
+
+
+---
+
+29. Следующий шаг после этой точки
+
+После закрытия этой контрольной точки переходи сразу к следующему блоку:
+
+вторая рабочая контрольная точка
+
+Собирай в таком порядке:
+
+1. WidgetFactory
+
+
+2. BaseFormItemView
+
+
+3. LeafItemView
+
+
+4. создание одного объекта QPushButton на canvas
+
+
+5. выбор объекта
+
+
+6. показ свойств объекта
+
+
+7. изменение text
+
+
+8. удаление объекта
+
+
+9. move объекта
+
+
+10. resize объекта
+
+
+
+Это и будет первая настоящая живая версия конструктора.

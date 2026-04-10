@@ -1,0 +1,801 @@
+Подэтап F — QPlainTextEdit
+
+Подключай QPlainTextEdit сразу после полного закрытия QTextEdit.
+Архитектуру не меняй. Повтори тот же pipeline для plain-text редактора.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QPlainTextEdit проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QPlainTextEdit
+
+Считай QPlainTextEdit обычным leaf-объектом.
+
+Тип
+
+type_name = "QPlainTextEdit"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Text"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QPlainTextEdit"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай ту же устойчивую базу, что и для QTextEdit.
+
+Обязательные свойства
+
+text: str
+
+placeholder: str
+
+read_only: bool
+
+
+Значения по умолчанию
+
+text = ""
+
+placeholder = ""
+
+read_only = false
+
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+line_wrap_mode
+
+tab_changes_focus
+
+undo_redo_enabled
+
+overwrite_mode
+
+background_visible
+
+center_on_scroll
+
+
+Сначала закрой базовый рабочий уровень.
+
+
+---
+
+4. Добавь QPlainTextEdit в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QPlainTextEdit"
+
+display_name = "Plain Text Edit"
+
+category = "Text"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Text"
+
+creatable_by_user = true
+
+name_prefix = "plain_text_edit"
+
+
+default_size
+
+Возьми:
+
+width = 180
+
+height = 90
+
+
+property_schema
+
+text
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "multiline"
+
+
+placeholder
+
+data_type = "str"
+
+required = true
+
+default = ""
+
+editor = "text"
+
+
+read_only
+
+data_type = "bool"
+
+required = true
+
+default = false
+
+editor = "checkbox"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Plain Text Edit появился в группе Text
+
+drag source передает type_name = "QPlainTextEdit"
+
+
+Не двигайся дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QPlainTextEdit в FormDocument
+
+Специальной логики не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь QPlainTextEdit в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QPlainTextEdit":
+
+создавай QPlainTextEdit
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setReadOnly(...)
+
+
+2. setPlaceholderText(...)
+
+
+3. setPlainText(...)
+
+
+
+
+---
+
+Почему именно так
+
+Сначала фиксируй режим редактирования, потом placeholder, потом текст.
+
+
+---
+
+Принцип
+
+Содержимое всегда трактуй как обычный plain text.
+
+
+---
+
+8. Добавь refresh для QPlainTextEdit
+
+Проверь, что refresh корректно переустанавливает:
+
+read_only
+
+placeholder
+
+text
+
+
+После изменения из PropertyPanel виджет на canvas должен обновляться без полного rebuild всего canvas.
+
+
+---
+
+9. Добавь QPlainTextEdit в PropertyPanel
+
+Панель свойств должна показывать QPlainTextEdit как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+text
+
+placeholder
+
+read_only
+
+
+Типы редакторов
+
+Используй:
+
+text → multiline editor
+
+placeholder → QLineEdit
+
+read_only → QCheckBox
+
+
+
+---
+
+10. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для text
+
+update_entity_property(entity_id, "text", new_value)
+
+
+Для placeholder
+
+update_entity_property(entity_id, "placeholder", new_value)
+
+
+Для read_only
+
+update_entity_property(entity_id, "read_only", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(entity_id)
+
+
+4. property_panel.rebuild()
+
+
+
+
+---
+
+11. Добавь нормализацию свойств QPlainTextEdit
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_plain_text_edit_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если text отсутствует:
+
+ставь ""
+
+
+Правило 2
+
+Если placeholder отсутствует:
+
+ставь ""
+
+
+Правило 3
+
+Если read_only не bool:
+
+приводи к bool
+
+
+Правило 4
+
+Все текстовые значения приводи к str
+
+Применяй helper:
+
+после property update
+
+при JSON load
+
+при Python import
+
+
+
+---
+
+12. Проверь работу CanvasEditor
+
+QPlainTextEdit не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+Если есть проблема, исправляй на уровне:
+
+WidgetFactory
+
+LeafItemView
+
+refresh pipeline
+
+
+
+---
+
+13. Проверь serializer
+
+QPlainTextEdit не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "text": "Строка 1\nСтрока 2",
+  "placeholder": "Введите текст",
+  "read_only": false
+}
+
+Проверь:
+
+переводы строк сохраняются корректно
+
+текст остается строкой
+
+read_only остается bool
+
+
+
+---
+
+14. Добавь экспорт QPlainTextEdit в PythonExporter
+
+В exporter добавь отдельную ветку для QPlainTextEdit.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setReadOnly(...)
+
+
+5. setPlaceholderText(...) — если не пусто
+
+
+6. setPlainText(...) — если текст не пуст
+
+
+
+Пример
+
+self.plain_text_edit_1 = QPlainTextEdit(self)
+self.plain_text_edit_1.setObjectName("plain_text_edit_1")
+self.plain_text_edit_1.setGeometry(100, 80, 180, 90)
+self.plain_text_edit_1.setReadOnly(False)
+self.plain_text_edit_1.setPlaceholderText("Введите текст")
+self.plain_text_edit_1.setPlainText("Строка 1\nСтрока 2")
+
+
+---
+
+15. Добавь импорт QPlainTextEdit в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QPlainTextEdit(parent)
+
+setReadOnly(...)
+
+setPlaceholderText(...)
+
+setPlainText(...)
+
+
+Восстанавливай свойства
+
+read_only
+
+placeholder
+
+text
+
+
+После полного разбора прогоняй через helper нормализации.
+
+
+---
+
+16. Не поддерживай на этом этапе дополнительные методы текста
+
+Если импортер встретил:
+
+appendPlainText(...)
+
+любые сложные текстовые операции
+
+
+считай это unsupported case для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+17. Проверь round-trip для QPlainTextEdit
+
+Сделай обязательный цикл:
+
+1. создать QPlainTextEdit в редакторе
+
+
+2. изменить:
+
+text
+
+placeholder
+
+read_only
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+18. Подготовь тестовые сценарии для QPlainTextEdit
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QPlainTextEdit
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — простой текст
+
+задать text = "Привет"
+
+проверить:
+
+canvas обновился
+
+JSON обновился
+
+
+
+Сценарий 3 — многострочный текст
+
+задать:
+
+"Строка 1\nСтрока 2\nСтрока 3"
+
+
+проверить:
+
+текст сохраняется корректно
+
+exporter/importer не ломают переводы строк
+
+
+
+Сценарий 4 — placeholder
+
+задать placeholder = "Введите заметку"
+
+
+Проверить:
+
+виджет обновился
+
+JSON обновился
+
+
+Сценарий 5 — read_only
+
+read_only = true
+
+
+Проверить:
+
+виджет обновился
+
+JSON обновился
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QPlainTextEdit внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+проверить, что parent-child структура не ломается
+
+
+
+---
+
+19. Проверь работу в special-container контекстах
+
+QPlainTextEdit как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства:
+
+Page-based
+
+вкладка / page / section / wizard page
+
+
+Content-based
+
+scroll area
+
+
+Pane-based
+
+splitter
+
+
+
+---
+
+20. Зафиксируй критерий завершения QPlainTextEdit
+
+Считай QPlainTextEdit полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+21. Что делать сразу после закрытия QPlainTextEdit
+
+Переходи к:
+
+Подэтап G — QListWidget
+
+Подключай по той же схеме.
+Используй свойства:
+
+items
+
+current_row
+
+
+Сначала не добавляй сложное управление selection mode, sorting и drag/drop items внутри самого списка.

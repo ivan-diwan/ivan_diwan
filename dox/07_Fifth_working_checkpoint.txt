@@ -1,0 +1,1010 @@
+Пятая рабочая контрольная точка
+
+Собери строго это состояние:
+
+работает QScrollArea как второй special-container
+
+при добавлении QScrollArea автоматически создается ContainerContent
+
+пользователь не видит ContainerContent как отдельный объект палитры
+
+обычные объекты можно бросать внутрь QScrollArea
+
+реальные дочерние объекты живут в ContainerContent, а не напрямую в QScrollArea
+
+QScrollArea можно выбрать, двигать, менять размер, удалять
+
+содержимое QScrollArea удаляется вместе с ним
+
+JSON snapshot корректно отражает эту структуру
+
+
+Не переходи дальше к QStackedWidget, пока этот блок не станет устойчивым.
+
+
+---
+
+1. Цель пятой контрольной точки
+
+Закрой второй special-container паттерн:
+
+внешний виджет-контейнер
+
+скрытая внутренняя область содержимого
+
+drop идет не в сам контейнер, а во внутреннюю служебную сущность
+
+
+Пользователь должен мочь:
+
+1. добавить QScrollArea
+
+
+2. бросить внутрь кнопку
+
+
+3. бросить внутрь label
+
+
+4. двигать объекты внутри scroll area
+
+
+5. двигать сам QScrollArea
+
+
+6. менять размер QScrollArea
+
+
+7. удалить QScrollArea вместе со всем содержимым
+
+
+
+
+---
+
+2. Проверь определения типов в WidgetRegistry
+
+Доведи до рабочего вида:
+
+QScrollArea
+
+ContainerContent
+
+
+
+---
+
+Для QScrollArea зафиксируй
+
+editor_kind = "special_container"
+
+palette_visible = true
+
+creatable_by_user = true
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Свойства
+
+widget_resizable: bool
+
+
+Разрешенные родители
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+
+Для этой точки этого достаточно.
+
+Разрешенные прямые дети
+
+только ContainerContent
+
+
+Special actions
+
+Можно оставить минимально:
+
+get_scroll_content
+
+
+Auto-create
+
+один ContainerContent
+
+
+Qt-класс
+
+QScrollArea
+
+
+
+---
+
+Для ContainerContent зафиксируй
+
+editor_kind = "internal"
+
+palette_visible = false
+
+creatable_by_user = false
+
+movable = false
+
+resizable = false
+
+deletable_directly = false
+
+
+Свойства
+
+пусто: {}
+
+
+Разрешенный родитель
+
+только QScrollArea
+
+
+Разрешенные дети
+
+leaf-объекты
+
+обычные контейнеры
+
+на этой точке пока не допускай вложенные special-container внутрь ContainerContent, кроме того, что уже реально поддержано
+
+
+Для практичного первого варианта разреши:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Qt-класс
+
+внутренне используй QWidget
+
+
+Geometry mode
+
+hidden
+
+
+
+---
+
+3. Добавь специальные операции в FormDocument
+
+В document/form_document.py реализуй:
+
+create_scroll_area(parent_id, geometry, name=None) -> EntityModel
+
+get_scroll_content(scroll_area_id) -> EntityModel | None
+
+
+
+---
+
+4. Реализация create_scroll_area(...)
+
+Сделай строго так:
+
+1. создать сущность QScrollArea
+
+
+2. задать свойства:
+
+widget_resizable = true
+
+
+
+3. создать ContainerContent
+
+
+4. назначить:
+
+parent_id = scroll_area_id
+
+order = 0
+
+name = scroll_content_N
+
+
+
+5. geometry ContainerContent задай как внутреннюю область:
+
+x = 0
+
+y = 0
+
+width = width scroll area
+
+height = height scroll area
+
+
+
+6. записать обе сущности
+
+
+7. пометить документ dirty
+
+
+8. вернуть QScrollArea
+
+
+
+
+---
+
+5. Реализация get_scroll_content(...)
+
+Сделай поиск среди прямых детей QScrollArea.
+
+Требование:
+
+у QScrollArea на этой точке должен быть ровно один ContainerContent
+
+
+Если его нет:
+
+возвращай None или
+
+выбрасывай controlled error
+
+
+
+---
+
+6. Добавь helper в DocumentController
+
+В controller/document_controller.py реализуй:
+
+create_scroll_area_from_drop(target_parent_id, x, y)
+
+get_scroll_content(scroll_area_id)
+
+
+
+---
+
+Реализация create_scroll_area_from_drop(...)
+
+1. получить дефолтный размер QScrollArea из registry
+
+
+2. собрать geometry
+
+
+3. вызвать document.create_scroll_area(...)
+
+
+4. обновить JSON snapshot
+
+
+5. перестроить canvas или обновить нужную ветку
+
+
+6. выбрать созданный QScrollArea
+
+
+7. показать его свойства в PropertyPanel
+
+
+
+
+---
+
+7. Создай ScrollAreaItemView
+
+Создай файл:
+
+canvas/views/scroll_area_item_view.py
+
+Сделай отдельный класс. Не пытайся впихнуть эту логику в ContainerItemView.
+
+
+---
+
+Поля
+
+entity_id
+
+inner_widget (QScrollArea)
+
+content_widget
+
+content_entity_id
+
+is_selected
+
+
+
+---
+
+Методы
+
+bind_entity(entity, inner_widget, content_widget, content_entity_id)
+
+refresh_from_document(entity, content_entity)
+
+set_selected(value)
+
+get_content_entity_id() -> str
+
+get_content_widget() -> QWidget
+
+get_content_origin() -> tuple[int, int]
+
+map_drop_to_content(local_pos) -> tuple[int, int]
+
+
+
+---
+
+8. Реализуй WidgetFactory для QScrollArea и ContainerContent
+
+В factory/widget_factory.py добавь поддержку:
+
+QScrollArea
+
+ContainerContent
+
+
+
+---
+
+Для QScrollArea
+
+Создавай:
+
+реальный QScrollArea
+
+
+Применяй:
+
+geometry
+
+widget_resizable
+
+
+
+---
+
+Для ContainerContent
+
+Создавай:
+
+обычный QWidget
+
+
+Не показывай его как отдельный пользовательский объект.
+Он нужен как внутренний content widget scroll area.
+
+
+---
+
+9. Реализуй визуальную связку QScrollArea -> ContainerContent
+
+В ScrollAreaItemView.bind_entity(...) делай:
+
+1. создать/получить QScrollArea
+
+
+2. создать/получить content_widget
+
+
+3. вызвать у scroll area:
+
+setWidget(content_widget)
+
+
+
+4. применить widget_resizable
+
+
+5. сохранить content_entity_id
+
+
+
+
+---
+
+10. Подключи ScrollAreaItemView в CanvasEditor
+
+В dispatch по типу/role добавь:
+
+QScrollArea -> ScrollAreaItemView
+
+
+
+---
+
+Не создавай отдельный обычный view для ContainerContent
+
+ContainerContent должен существовать в документе, но не как отдельный пользовательский canvas-элемент.
+
+Его визуальная жизнь идет внутри ScrollAreaItemView.
+
+
+---
+
+11. Измени логику CanvasEditor.add_view_for_entity(...)
+
+Сделай так:
+
+Если тип = QScrollArea
+
+1. получить сущность QScrollArea
+
+
+2. получить его ContainerContent через документ
+
+
+3. создать inner_widget для scroll area
+
+
+4. создать content_widget для ContainerContent
+
+
+5. создать ScrollAreaItemView
+
+
+6. привязать все вместе
+
+
+7. сохранить только view scroll area в item_views_by_id
+
+
+
+
+---
+
+Не создавай отдельный item_view для ContainerContent
+
+Это важно для UX.
+
+
+---
+
+12. Доработай CanvasEditor.rebuild_all()
+
+Рекурсивная сборка теперь должна учитывать special-case:
+
+Если сущность — QScrollArea
+
+build его как обычный видимый объект
+
+потом children его ContainerContent должны строиться не как children QScrollArea, а как children внутреннего content_widget
+
+
+
+---
+
+Добавь helper
+
+get_visual_parent_for_entity(entity)
+
+
+Логика:
+
+Если parent_id = form_root
+
+визуальный родитель = корневой canvas
+
+Если родитель — обычный контейнер
+
+визуальный родитель = клиентская область контейнера
+
+Если родитель — ContainerContent
+
+визуальный родитель = content_widget соответствующего ScrollAreaItemView
+
+
+---
+
+13. Сделай корректный drop в QScrollArea
+
+Это ключевой сценарий пятой точки.
+
+
+---
+
+Логика
+
+Если курсор попал в QScrollArea, настоящий parent_id для нового объекта должен быть:
+
+не scroll_area_id
+
+а content_entity_id
+
+
+
+---
+
+Реализуй в CanvasEditor.resolve_drop_parent(pos)
+
+Если под курсором QScrollArea:
+
+1. найти соответствующий ScrollAreaItemView
+
+
+2. получить его content_entity_id
+
+
+3. перевести позицию в локальные координаты content area
+
+
+4. вернуть:
+
+target_parent_id = content_entity_id
+
+x/y локальные относительно content area
+
+
+
+
+
+---
+
+14. Не показывай ContainerContent в палитре и в панели свойств как обычный объект
+
+Зафиксируй строго:
+
+пользователь не может создать ContainerContent
+
+пользователь не видит его в палитре
+
+пользователь не должен выбирать его как обычный объект на форме
+
+пользователь не должен редактировать его как самостоятельную сущность
+
+
+Весь доступ к нему идет только косвенно через QScrollArea.
+
+
+---
+
+15. Подключи свойства QScrollArea в PropertyPanel
+
+Если выбран QScrollArea, показывай:
+
+Основное
+
+type
+
+name
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+widget_resizable
+
+
+Больше на этой точке не нужно.
+
+
+---
+
+16. Подключи обновление widget_resizable
+
+При изменении через PropertyPanel:
+
+1. PropertyPanel вызывает контроллер
+
+
+2. контроллер вызывает document.update_property(...)
+
+
+3. документ помечается dirty
+
+
+4. canvas обновляет ScrollAreaItemView
+
+
+5. JSON обновляется
+
+
+
+
+---
+
+17. Подключи выбор QScrollArea
+
+Сценарий:
+
+клик по пустой области внутри scroll area, но не по дочернему объекту
+→ выбирается QScrollArea
+
+клик по объекту внутри scroll area
+→ выбирается дочерний объект
+
+
+Для этого в ScrollAreaItemView реализуй hit testing так же, как для контейнеров.
+
+
+---
+
+18. Подключи move QScrollArea
+
+Поведение:
+
+QScrollArea двигается как единый объект
+
+ContainerContent и его дети визуально едут вместе
+
+geometry детей не пересчитывается
+
+меняется только geometry самого QScrollArea
+
+
+После завершения move:
+
+документ обновляется
+
+JSON обновляется
+
+PropertyPanel показывает новые координаты
+
+
+
+---
+
+19. Подключи resize QScrollArea
+
+Поведение:
+
+меняется размер QScrollArea
+
+внутренний content_widget живет внутри него
+
+geometry детей не меняется
+
+geometry ContainerContent можно синхронизировать с новой внутренней областью scroll area
+
+
+
+---
+
+Практическое правило для первой устойчивой версии
+
+После resize QScrollArea:
+
+обновляй geometry самого QScrollArea
+
+при необходимости обновляй geometry ContainerContent
+
+children не трогай
+
+
+
+---
+
+20. Обновляй ContainerContent.geometry осознанно
+
+На этой точке сделай простое правило:
+
+ContainerContent.geometry.width = текущая внутренняя ширина content area
+
+ContainerContent.geometry.height = либо текущая высота content widget, либо не меньше высоты scroll area
+
+
+Не усложняй авторасчет содержимого.
+Пока достаточно согласованной модели.
+
+
+---
+
+21. Подключи удаление QScrollArea вместе с содержимым
+
+Сценарий должен работать полностью.
+
+Пользователь
+
+Выбирает QScrollArea и удаляет.
+
+Документ
+
+Удаляет:
+
+QScrollArea
+
+ContainerContent
+
+все дочерние объекты внутри ContainerContent
+
+
+Canvas
+
+Удаляет всю ветку
+
+JSON
+
+Очищается от этой структуры полностью
+
+
+---
+
+22. Доработай delete_subtree(...) с учетом ContainerContent
+
+На уровне документа это уже обычная сущность.
+
+Никаких специальных исключений в модели не делай.
+
+Правило:
+
+если удаляется QScrollArea
+
+ContainerContent удаляется как его child
+
+все объекты внутри ContainerContent удаляются рекурсивно
+
+
+
+---
+
+23. JSON для QScrollArea должен выглядеть так
+
+Добейся именно такого уровня структуры:
+
+{
+  "meta": {
+    "format_version": 1,
+    "document_type": "pyside6_form"
+  },
+  "form": {
+    "id": "form_root",
+    "type": "FormRoot",
+    "name": "form",
+    "root_widget_type": "QWidget",
+    "width": 1200,
+    "height": 800,
+    "window_title": ""
+  },
+  "objects": [
+    {
+      "id": "scroll_area_1",
+      "type": "QScrollArea",
+      "parent_id": "form_root",
+      "name": "scroll_area_1",
+      "order": 0,
+      "geometry": {
+        "x": 80,
+        "y": 60,
+        "width": 300,
+        "height": 200
+      },
+      "properties": {
+        "widget_resizable": true
+      }
+    },
+    {
+      "id": "scroll_content_1",
+      "type": "ContainerContent",
+      "parent_id": "scroll_area_1",
+      "name": "scroll_content_1",
+      "order": 0,
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 300,
+        "height": 200
+      },
+      "properties": {}
+    },
+    {
+      "id": "push_button_1",
+      "type": "QPushButton",
+      "parent_id": "scroll_content_1",
+      "name": "push_button_1",
+      "order": 0,
+      "geometry": {
+        "x": 20,
+        "y": 20,
+        "width": 120,
+        "height": 32
+      },
+      "properties": {
+        "text": "Button"
+      }
+    }
+  ]
+}
+
+Ключевое правило:
+
+объект внутри scroll area принадлежит ContainerContent
+
+
+
+---
+
+24. Проверь базовые сценарии
+
+Закрывай этап только если работают все сценарии.
+
+
+---
+
+Сценарий 1
+
+добавить QScrollArea
+
+убедиться, что внутри документа появился ContainerContent
+
+
+
+---
+
+Сценарий 2
+
+выбрать QScrollArea
+
+изменить widget_resizable
+
+
+
+---
+
+Сценарий 3
+
+добавить QPushButton в QScrollArea
+
+убедиться, что parent_id = scroll_content_*
+
+
+
+---
+
+Сценарий 4
+
+добавить QLabel в QScrollArea
+
+двигать его внутри scroll area
+
+
+
+---
+
+Сценарий 5
+
+двигать сам QScrollArea
+
+убедиться, что координаты детей не меняются
+
+
+
+---
+
+Сценарий 6
+
+менять размер QScrollArea
+
+убедиться, что структура документа остается корректной
+
+
+
+---
+
+Сценарий 7
+
+удалить QScrollArea
+
+убедиться, что удалены:
+
+QScrollArea
+
+ContainerContent
+
+все дочерние объекты
+
+
+
+
+---
+
+Сценарий 8
+
+JSON snapshot после каждого завершенного действия корректный
+
+
+
+---
+
+25. Что пока не подключай
+
+Не делай пока:
+
+QStackedWidget
+
+StackPage
+
+QToolBox
+
+ToolPage
+
+QSplitter
+
+QWizard
+
+PythonExporter
+
+PythonImporter
+
+
+
+---
+
+26. Следующий шаг
+
+После устойчивого QScrollArea переходи к:
+
+Шестая рабочая контрольная точка — QStackedWidget
+
+Собирай в таком порядке:
+
+1. QStackedWidget
+
+
+2. auto-create двух StackPage
+
+
+3. скрытые страницы как внутренние сущности
+
+
+4. управление страницами только через PropertyPanel
+
+
+5. выбор активной страницы
+
+
+6. drop в активную страницу
+
+
+7. add/remove/rename page
+
+
+8. корректный JSON для stacked-структуры
+
+
+
+После устойчивого QStackedWidget переходи к QToolBox.

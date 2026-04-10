@@ -1,0 +1,1150 @@
+Девятая рабочая контрольная точка
+
+Собери строго это состояние:
+
+работает QWizard как special-container
+
+при добавлении QWizard автоматически создаются две WizardPage
+
+WizardPage не видны в палитре и не выбираются как обычные объекты формы
+
+активная страница управляется через PropertyPanel и через сам QWizard
+
+обычные объекты можно бросать в активную страницу
+
+реальные дочерние объекты живут в WizardPage, а не напрямую в QWizard
+
+можно добавлять страницы
+
+можно удалять страницы
+
+можно переименовывать страницы
+
+можно менять title и subtitle страницы
+
+можно переключать активную страницу
+
+корректно обновляется JSON snapshot
+
+корректно удаляется QWizard вместе со всеми страницами и содержимым
+
+
+После этого переходи к полной доводке PropertyPanel, а не сразу к Python exporter.
+
+
+---
+
+1. Цель девятой контрольной точки
+
+Закрой последний из ключевых special-container типов.
+
+Пользователь должен мочь:
+
+1. добавить QWizard
+
+
+2. увидеть две страницы
+
+
+3. редактировать title и subtitle страниц
+
+
+4. переключать активную страницу
+
+
+5. добавлять объекты в первую страницу
+
+
+6. переходить на вторую страницу
+
+
+7. добавлять туда другие объекты
+
+
+8. удалять страницы
+
+
+9. удалять весь QWizard вместе со всем содержимым
+
+
+
+
+---
+
+2. Доведи определения типов в WidgetRegistry
+
+Проверь и зафиксируй:
+
+QWizard
+
+WizardPage
+
+
+
+---
+
+Для QWizard зафиксируй
+
+editor_kind = "special_container"
+
+palette_visible = true
+
+creatable_by_user = true
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Свойства
+
+window_title: str
+
+current_index: int
+
+
+Разрешенные родители
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+ToolPage
+
+StackPage
+
+ContainerContent
+
+
+Разрешенные прямые дети
+
+только WizardPage
+
+
+Special actions
+
+add_wizard_page
+
+remove_wizard_page
+
+rename_wizard_page
+
+set_current_wizard_page
+
+
+Auto-create
+
+две WizardPage
+
+
+Qt-класс
+
+QWizard
+
+
+
+---
+
+Для WizardPage зафиксируй
+
+editor_kind = "internal"
+
+palette_visible = false
+
+creatable_by_user = false
+
+movable = false
+
+resizable = false
+
+deletable_directly = false
+
+
+Свойства
+
+title: str
+
+subtitle: str
+
+
+Разрешенный родитель
+
+только QWizard
+
+
+Разрешенные дети
+
+На этой точке разреши:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Qt-класс
+
+внутренне используй QWizardPage или QWidget
+
+
+Для первой устойчивой версии лучше:
+
+использовать реальный QWizardPage
+
+
+Geometry mode
+
+hidden
+
+
+
+---
+
+3. Добавь специальные операции в FormDocument
+
+В document/form_document.py реализуй:
+
+create_wizard(parent_id, geometry, name=None) -> EntityModel
+
+add_wizard_page(wizard_id, title=None, subtitle=None) -> EntityModel
+
+remove_wizard_page(wizard_id, wizard_page_id) -> None
+
+rename_wizard_page(wizard_page_id, new_title, new_subtitle=None) -> None
+
+set_current_wizard_page(wizard_id, index) -> None
+
+get_wizard_pages(wizard_id) -> list[EntityModel]
+
+
+
+---
+
+4. Реализация create_wizard(...)
+
+Сделай строго так:
+
+1. создать сущность QWizard
+
+
+2. задать свойства:
+
+window_title = "Wizard"
+
+current_index = 0
+
+
+
+3. создать первую WizardPage
+
+
+4. создать вторую WizardPage
+
+
+5. назначить им:
+
+parent_id = wizard_id
+
+order = 0 и order = 1
+
+properties["title"] = "Page 1" и "Page 2"
+
+properties["subtitle"] = ""
+
+
+
+6. пометить документ dirty
+
+
+7. вернуть QWizard
+
+
+
+
+---
+
+5. Реализация add_wizard_page(...)
+
+Сделай:
+
+1. проверить существование QWizard
+
+
+2. получить текущие WizardPage
+
+
+3. вычислить следующий order
+
+
+4. создать новую WizardPage
+
+
+5. задать:
+
+title, если передан
+
+иначе "Page N"
+
+subtitle, если передан
+
+иначе ""
+
+
+
+6. сделать новую страницу активной
+
+
+7. пометить документ dirty
+
+
+8. вернуть созданную страницу
+
+
+
+
+---
+
+6. Реализация remove_wizard_page(...)
+
+Сделай аккуратно.
+
+Алгоритм
+
+1. проверить существование QWizard
+
+
+2. проверить, что wizard_page_id действительно child этого QWizard
+
+
+3. удалить все дочерние объекты WizardPage
+
+
+4. удалить саму WizardPage
+
+
+5. перестроить order оставшихся страниц
+
+
+6. скорректировать current_index
+
+
+
+
+---
+
+Ограничение
+
+Не разрешай удалить последнюю страницу.
+
+Зафиксируй правило:
+
+у QWizard должна оставаться минимум одна WizardPage
+
+
+
+---
+
+7. Реализация rename_wizard_page(...)
+
+Меняй:
+
+properties["title"]
+
+properties["subtitle"]
+
+
+После этого:
+
+документ dirty
+
+PropertyPanel обновляется
+
+JSON обновляется
+
+
+
+---
+
+8. Реализация set_current_wizard_page(...)
+
+Меняй:
+
+properties["current_index"]
+
+
+Проверь:
+
+индекс в допустимом диапазоне
+
+
+После изменения:
+
+документ dirty
+
+canvas обновляется
+
+JSON обновляется
+
+
+
+---
+
+9. Добавь методы в DocumentController
+
+В controller/document_controller.py реализуй:
+
+create_wizard_from_drop(target_parent_id, x, y)
+
+add_wizard_page(wizard_id, title=None, subtitle=None)
+
+remove_wizard_page(wizard_id, wizard_page_id)
+
+rename_wizard_page(wizard_page_id, new_title, new_subtitle=None)
+
+set_current_wizard_page(wizard_id, index)
+
+
+
+---
+
+Реализация create_wizard_from_drop(...)
+
+1. взять дефолтный размер из registry
+
+
+2. собрать geometry
+
+
+3. вызвать document.create_wizard(...)
+
+
+4. обновить JSON snapshot
+
+
+5. перестроить canvas
+
+
+6. выбрать QWizard
+
+
+7. показать свойства wizard в PropertyPanel
+
+
+
+
+---
+
+10. Создай WizardItemView
+
+Создай файл:
+
+canvas/views/wizard_item_view.py
+
+Сделай отдельный класс.
+
+
+---
+
+Поля
+
+entity_id
+
+inner_widget (QWizard)
+
+pages_by_id
+
+page_widgets_by_id
+
+active_page_id
+
+
+
+---
+
+Методы
+
+bind_entity(entity, inner_widget)
+
+refresh_from_document(entity, wizard_pages)
+
+rebuild_pages(wizard_pages)
+
+set_current_page(index)
+
+get_active_page_id() -> str | None
+
+get_active_page_widget() -> QWidget | None
+
+map_drop_to_active_page(local_pos) -> tuple[int, int]
+
+set_selected(value)
+
+
+
+---
+
+11. Реализуй WidgetFactory для QWizard и WizardPage
+
+В factory/widget_factory.py добавь поддержку:
+
+QWizard
+
+WizardPage
+
+
+
+---
+
+Для QWizard
+
+Создавай:
+
+реальный QWizard
+
+
+Применяй:
+
+geometry
+
+window_title
+
+
+current_index удобнее применять в WizardItemView, когда страницы уже созданы.
+
+
+---
+
+Для WizardPage
+
+Создавай:
+
+реальный QWizardPage
+
+
+Применяй:
+
+title
+
+subtitle
+
+
+Не создавай отдельный пользовательский item view для WizardPage.
+
+
+---
+
+12. Подключи WizardItemView в CanvasEditor
+
+В dispatch добавь:
+
+QWizard -> WizardItemView
+
+
+
+---
+
+13. Не создавай отдельный обычный view для WizardPage
+
+WizardPage:
+
+существует в документе
+
+существует визуально как внутренняя страница wizard
+
+не должен рисоваться как отдельный объект формы
+
+не должен выбираться как обычный leaf/container объект
+
+
+
+---
+
+14. Реализуй rebuild_pages(...) у WizardItemView
+
+Делай так:
+
+1. очистить текущие страницы wizard
+
+
+2. получить WizardPage из документа
+
+
+3. отсортировать по order
+
+
+4. для каждой страницы:
+
+создать реальный QWizardPage
+
+применить title
+
+применить subtitle
+
+добавить страницу в QWizard
+
+сохранить соответствие:
+
+wizard_page_id -> page_widget
+
+
+
+
+5. выставить активную страницу по current_index
+
+
+
+
+---
+
+15. Отображай дочерние объекты WizardPage
+
+Любой объект, у которого:
+
+parent_id = wizard_page_id
+
+
+должен визуально строиться внутри соответствующей QWizardPage.
+
+
+---
+
+В CanvasEditor
+
+добавь в get_visual_parent_for_entity(entity) правило:
+
+Если родитель — WizardPage, тогда:
+
+найти WizardItemView родительского QWizard
+
+получить page_widget нужной страницы
+
+использовать его как визуального родителя
+
+
+
+---
+
+16. Подключи переключение активной страницы wizard
+
+Сделай двустороннюю синхронизацию.
+
+
+---
+
+Если пользователь меняет страницу внутри QWizard
+
+1. WizardItemView ловит смену страницы
+
+
+2. сообщает CanvasEditor
+
+
+3. canvas передает контроллеру
+
+
+4. контроллер вызывает set_current_wizard_page(...)
+
+
+5. документ обновляется
+
+
+6. JSON обновляется
+
+
+
+
+---
+
+Если пользователь меняет страницу через PropertyPanel
+
+1. PropertyPanel вызывает контроллер
+
+
+2. контроллер меняет документ
+
+
+3. canvas обновляет QWizard
+
+
+
+
+---
+
+17. Подключи drop объекта в активную страницу wizard
+
+Это ключевой сценарий.
+
+
+---
+
+Логика
+
+Если пользователь бросает объект на QWizard, настоящий parent_id должен быть:
+
+не wizard_id
+
+а active_wizard_page_id
+
+
+
+---
+
+В CanvasEditor.resolve_drop_parent(pos)
+
+Если под курсором QWizard:
+
+1. найти WizardItemView
+
+
+2. взять active_page_id
+
+
+3. перевести позицию в локальные координаты активной страницы
+
+
+4. вернуть:
+
+target_parent_id = active_page_id
+
+локальные x/y
+
+
+
+
+
+---
+
+18. Подключи PropertyPanel для QWizard
+
+Для выбранного QWizard показывай:
+
+Основное
+
+type
+
+name
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+window_title
+
+current_index
+
+
+Блок “Страницы”
+
+Показывай:
+
+список страниц
+
+активную страницу
+
+Добавить страницу
+
+Удалить страницу
+
+поле Title
+
+поле Subtitle
+
+действие Сделать активной
+
+
+
+---
+
+19. Модель UI блока страниц
+
+Сделай так:
+
+Список страниц
+
+Показывай:
+
+[0] Page 1
+
+[1] Page 2
+
+
+Элементы управления
+
+Добавить
+
+Удалить
+
+поле Title
+
+поле Subtitle
+
+Сделать активной
+
+
+
+---
+
+20. Не показывай WizardPage в палитре и как обычный объект свойств
+
+WizardPage не должен:
+
+появляться в палитре
+
+рисоваться как отдельный объект формы
+
+выбираться как обычный объект формы
+
+
+Редактирование WizardPage делай только через блок страниц в панели QWizard.
+
+
+---
+
+21. Доработай DocumentController для обновления canvas после wizard-операций
+
+После:
+
+add_wizard_page
+
+remove_wizard_page
+
+rename_wizard_page
+
+set_current_wizard_page
+
+
+делай:
+
+1. обновление документа
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(wizard_id)
+или
+
+
+4. canvas.rebuild_all() как устойчивый вариант
+
+
+
+Для этой точки rebuild_all() допустим.
+
+
+---
+
+22. Подключи удаление QWizard
+
+Сценарий должен работать полностью.
+
+Пользователь
+
+Выбирает QWizard и удаляет.
+
+Документ
+
+Удаляет:
+
+сам QWizard
+
+все WizardPage
+
+все дочерние объекты внутри страниц
+
+
+Canvas
+
+Удаляет всю ветку
+
+JSON
+
+Очищается от этой структуры полностью
+
+
+---
+
+23. JSON должен выглядеть так
+
+Добейся такой структуры:
+
+{
+  "meta": {
+    "format_version": 1,
+    "document_type": "pyside6_form"
+  },
+  "form": {
+    "id": "form_root",
+    "type": "FormRoot",
+    "name": "form",
+    "root_widget_type": "QWidget",
+    "width": 1200,
+    "height": 800,
+    "window_title": ""
+  },
+  "objects": [
+    {
+      "id": "wizard_1",
+      "type": "QWizard",
+      "parent_id": "form_root",
+      "name": "wizard_1",
+      "order": 0,
+      "geometry": {
+        "x": 120,
+        "y": 100,
+        "width": 420,
+        "height": 300
+      },
+      "properties": {
+        "window_title": "Wizard",
+        "current_index": 0
+      }
+    },
+    {
+      "id": "wizard_page_1",
+      "type": "WizardPage",
+      "parent_id": "wizard_1",
+      "name": "wizard_page_1",
+      "order": 0,
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 420,
+        "height": 300
+      },
+      "properties": {
+        "title": "Page 1",
+        "subtitle": ""
+      }
+    },
+    {
+      "id": "wizard_page_2",
+      "type": "WizardPage",
+      "parent_id": "wizard_1",
+      "name": "wizard_page_2",
+      "order": 1,
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 420,
+        "height": 300
+      },
+      "properties": {
+        "title": "Page 2",
+        "subtitle": ""
+      }
+    },
+    {
+      "id": "push_button_1",
+      "type": "QPushButton",
+      "parent_id": "wizard_page_1",
+      "name": "push_button_1",
+      "order": 0,
+      "geometry": {
+        "x": 20,
+        "y": 20,
+        "width": 120,
+        "height": 32
+      },
+      "properties": {
+        "text": "Button"
+      }
+    }
+  ]
+}
+
+Ключевое правило:
+
+объекты принадлежат WizardPage, а не QWizard
+
+
+
+---
+
+24. Проверь базовые сценарии
+
+Закрывай этап только если работают все сценарии.
+
+
+---
+
+Сценарий 1
+
+добавить QWizard
+
+автоматически получить две страницы
+
+
+
+---
+
+Сценарий 2
+
+переименовать первую страницу
+
+задать subtitle
+
+
+
+---
+
+Сценарий 3
+
+переключить активную страницу
+
+
+
+---
+
+Сценарий 4
+
+добавить QPushButton в первую страницу
+
+
+
+---
+
+Сценарий 5
+
+перейти на вторую страницу
+
+добавить QLabel
+
+
+
+---
+
+Сценарий 6
+
+убедиться, что объекты живут в разных WizardPage
+
+
+
+---
+
+Сценарий 7
+
+удалить одну страницу
+
+убедиться, что ее содержимое тоже удалилось
+
+
+
+---
+
+Сценарий 8
+
+удалить весь QWizard
+
+убедиться, что удалилось все поддерево
+
+
+
+---
+
+Сценарий 9
+
+JSON snapshot после каждого завершенного действия корректный
+
+
+
+---
+
+25. Что не подключай пока
+
+Не делай пока:
+
+PythonExporter
+
+PythonImporter
+
+
+
+---
+
+26. Следующий шаг
+
+После устойчивого QWizard переходи к:
+
+Десятая рабочая контрольная точка — полная доводка PropertyPanel
+
+Собирай в таком порядке:
+
+1. унификация панели свойств по всем типам
+
+
+2. нормальные редакторы:
+
+text
+
+multiline
+
+checkbox
+
+dropdown
+
+integer
+
+float
+
+string list
+
+
+
+3. read-only поля
+
+
+4. скрытие geometry у internal-типов
+
+
+5. специальные блоки:
+
+tabs
+
+sections
+
+pages
+
+splitter sizes
+
+
+
+6. единое применение изменений через контроллер
+
+
+7. корректный refresh после любого изменения
+
+
+
+После устойчивой панели свойств переходи к PythonExporter.

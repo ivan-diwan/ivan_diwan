@@ -1,0 +1,842 @@
+Подэтап D — QProgressBar
+
+Подключай QProgressBar как отдельный leaf-объект полного цикла.
+Закрой его полностью, прежде чем переходить к QTextEdit.
+
+
+---
+
+1. Цель подэтапа
+
+Доведи QProgressBar до состояния, при котором он:
+
+есть в палитре
+
+создается на форме через drag&drop
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QProgressBar
+
+Считай QProgressBar обычным leaf-объектом.
+
+Тип
+
+type_name = "QProgressBar"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QProgressBar"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+value: int
+
+minimum: int
+
+maximum: int
+
+text_visible: bool
+
+
+Значения по умолчанию
+
+value = 0
+
+minimum = 0
+
+maximum = 100
+
+text_visible = true
+
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+format
+
+inverted_appearance
+
+alignment
+
+orientation
+
+text_direction
+
+
+Сначала закрой базовый рабочий уровень.
+
+
+---
+
+4. Добавь QProgressBar в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QProgressBar"
+
+display_name = "Progress Bar"
+
+category = "Numbers"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Numbers"
+
+creatable_by_user = true
+
+name_prefix = "progress_bar"
+
+
+default_size
+
+Возьми:
+
+width = 140
+
+height = 24
+
+
+property_schema
+
+value
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+minimum
+
+data_type = "int"
+
+required = true
+
+default = 0
+
+editor = "integer"
+
+
+maximum
+
+data_type = "int"
+
+required = true
+
+default = 100
+
+editor = "integer"
+
+
+text_visible
+
+data_type = "bool"
+
+required = true
+
+default = true
+
+editor = "checkbox"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Progress Bar появился в группе Numbers
+
+drag source отдает type_name = "QProgressBar"
+
+
+Не двигайся дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QProgressBar в FormDocument
+
+Специальной логики не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь QProgressBar в WidgetFactory
+
+В factory/widget_factory.py добавь ветку для QProgressBar.
+
+В create_widget(entity)
+
+Если entity.type == "QProgressBar":
+
+создавай QProgressBar
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setMinimum(...)
+
+
+2. setMaximum(...)
+
+
+3. setValue(...)
+
+
+4. setTextVisible(...)
+
+
+
+Порядок применения обязателен
+
+Применяй именно так:
+
+1. minimum
+
+
+2. maximum
+
+
+3. value
+
+
+4. text_visible
+
+
+
+Почему это важно
+
+Сначала фиксируй диапазон, потом значение.
+Иначе виджет может автоматически скорректировать value, и canvas уйдет в рассинхрон с документом.
+
+
+---
+
+8. Сделай refresh для QProgressBar
+
+Проверь, что refresh_widget(widget, entity) или аналогичный метод корректно переустанавливает:
+
+minimum
+
+maximum
+
+value
+
+text_visible
+
+
+После изменения свойств из PropertyPanel прогрессбар на canvas должен обновляться без пересоздания всего canvas.
+
+
+---
+
+9. Добавь QProgressBar в PropertyPanel
+
+Панель свойств должна показывать QProgressBar как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+value
+
+minimum
+
+maximum
+
+text_visible
+
+
+Типы редакторов
+
+Используй:
+
+value → QSpinBox
+
+minimum → QSpinBox
+
+maximum → QSpinBox
+
+text_visible → QCheckBox
+
+
+
+---
+
+10. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для value
+
+update_entity_property(entity_id, "value", new_value)
+
+
+Для minimum
+
+update_entity_property(entity_id, "minimum", new_value)
+
+
+Для maximum
+
+update_entity_property(entity_id, "maximum", new_value)
+
+
+Для text_visible
+
+update_entity_property(entity_id, "text_visible", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(entity_id)
+
+
+4. property_panel.rebuild()
+
+
+
+
+---
+
+11. Добавь нормализацию свойств QProgressBar
+
+Сделай отдельный helper.
+Не смешивай его с QSpinBox и QSlider.
+
+Например:
+
+_normalize_progress_bar_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если minimum > maximum:
+
+при установке minimum подними maximum = minimum
+
+при установке maximum опусти minimum = maximum
+
+
+Правило 2
+
+Если value < minimum:
+
+ставь value = minimum
+
+
+Правило 3
+
+Если value > maximum:
+
+ставь value = maximum
+
+
+Правило 4
+
+Если text_visible не bool:
+
+приводи к bool
+
+
+Применяй этот helper:
+
+после property update
+
+при JSON load
+
+при Python import
+
+
+
+---
+
+12. Проверь работу CanvasEditor
+
+QProgressBar не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+Если есть сбой, исправляй на уровне:
+
+WidgetFactory
+
+LeafItemView
+
+refresh pipeline
+
+
+Не вводи новый специальный view-класс.
+
+
+---
+
+13. Проверь serializer
+
+QProgressBar не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "value": 40,
+  "minimum": 0,
+  "maximum": 100,
+  "text_visible": true
+}
+
+Проверь:
+
+числа остаются числами
+
+text_visible остается bool
+
+
+
+---
+
+14. Добавь экспорт QProgressBar в PythonExporter
+
+В exporter добавь отдельную ветку для QProgressBar.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimum(...)
+
+
+5. setMaximum(...)
+
+
+6. setValue(...)
+
+
+7. setTextVisible(...)
+
+
+
+Пример
+
+self.progress_bar_1 = QProgressBar(self)
+self.progress_bar_1.setObjectName("progress_bar_1")
+self.progress_bar_1.setGeometry(100, 80, 140, 24)
+self.progress_bar_1.setMinimum(0)
+self.progress_bar_1.setMaximum(100)
+self.progress_bar_1.setValue(40)
+self.progress_bar_1.setTextVisible(True)
+
+Порядок тоже фиксируй
+
+Сначала диапазон, потом значение, потом видимость текста.
+
+
+---
+
+15. Добавь импорт QProgressBar в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QProgressBar(parent)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setValue(...)
+
+setTextVisible(...)
+
+
+Восстанавливай свойства
+
+minimum
+
+maximum
+
+value
+
+text_visible
+
+
+После полного разбора прогоняй через helper нормализации.
+
+
+---
+
+16. Проверь round-trip для QProgressBar
+
+Сделай обязательный цикл:
+
+1. создать QProgressBar в редакторе
+
+
+2. изменить:
+
+value
+
+minimum
+
+maximum
+
+text_visible
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+17. Подготовь тестовые сценарии для QProgressBar
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QProgressBar
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — базовые свойства
+
+поставить:
+
+value = 40
+
+minimum = 0
+
+maximum = 100
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+виджет визуально показывает корректное значение
+
+
+Сценарий 3 — скрытие текста
+
+text_visible = false
+
+
+Проверить:
+
+виджет обновился
+
+JSON обновился
+
+
+Сценарий 4 — нормализация диапазона
+
+выставить minimum = 80
+
+потом maximum = 20
+
+
+Проверить:
+
+документ остался валидным
+
+minimum, maximum, value пришли в согласованное состояние
+
+
+Сценарий 5 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 6 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 7 — вложенный контекст
+
+создать QProgressBar внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+проверить, что parent-child структура не ломается
+
+
+
+---
+
+18. Проверь работу в special-container контекстах
+
+QProgressBar как обычный leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства:
+
+Page-based
+
+вкладка / page / section / wizard page
+
+
+Content-based
+
+scroll area
+
+
+Pane-based
+
+splitter
+
+
+
+---
+
+19. Зафиксируй критерий завершения QProgressBar
+
+Считай QProgressBar полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+20. Что делать сразу после закрытия QProgressBar
+
+Переходи к:
+
+Подэтап E — QTextEdit
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+text
+
+placeholder
+
+read_only
+
+
+Сначала трактуй содержимое как обычный текст.
+Rich text и HTML не добавляй на первом уровне.

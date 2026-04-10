@@ -1,0 +1,428 @@
+Подэтап Q — QLCDNumber
+
+
+---
+
+1. Модель
+
+type_name: QLCDNumber
+qt_class: QLCDNumber
+palette_group: Display
+default_size: 120x50
+
+
+---
+
+2. Свойства
+
+value: int = 0
+digit_count: int = 5
+
+
+---
+
+3. Нормализация
+
+digit_count >= 1
+
+value:
+  приведение к int
+
+(ограничение по длине не вводим — Qt сам обрежет визуально)
+
+
+---
+
+4. Factory
+
+create
+
+QLCDNumber()
+
+apply (порядок)
+
+setDigitCount(digit_count)
+display(value)
+
+
+---
+
+5. PropertyPanel
+
+value → QSpinBox
+digit_count → QSpinBox
+
+
+---
+
+6. Export
+
+QLCDNumber
+setDigitCount
+display
+
+пример
+
+self.lcd_number_1 = QLCDNumber(self)
+self.lcd_number_1.setGeometry(100, 80, 120, 50)
+self.lcd_number_1.setDigitCount(5)
+self.lcd_number_1.display(123)
+
+
+---
+
+7. Import
+
+Парсить:
+
+setDigitCount
+display
+
+
+---
+
+8. Проверки
+
+1. создание
+2. изменение value
+3. изменение digit_count
+4. большие значения → не ломаются
+5. JSON round-trip
+6. Python round-trip
+7. вложенные контейнеры
+
+
+---
+
+Подэтап R — QListView
+
+
+---
+
+1. Модель
+
+type_name: QListView
+qt_class: QListView
+palette_group: Data
+default_size: 180x120
+
+
+---
+
+2. Свойства
+
+model_items: list[str] = []
+
+
+---
+
+3. Нормализация
+
+если не список → []
+каждый элемент → str
+
+
+---
+
+4. Factory
+
+create
+
+QListView()
+
+apply
+
+создать QStringListModel
+setStringList(model_items)
+setModel(model)
+
+
+---
+
+5. PropertyPanel
+
+model_items → string_list
+
+
+---
+
+6. Export
+
+(упрощенная модель)
+
+QStringListModel
+setStringList
+setModel
+
+пример
+
+self.list_view_1 = QListView(self)
+self.list_view_1.setGeometry(100, 80, 180, 120)
+
+model = QStringListModel()
+model.setStringList(["A", "B", "C"])
+self.list_view_1.setModel(model)
+
+
+---
+
+7. Import
+
+Парсить:
+
+QStringListModel
+setStringList
+setModel
+
+
+---
+
+8. Проверки
+
+1. создание
+2. список строк
+3. пустой список
+4. JSON round-trip
+5. Python round-trip
+6. вложенные контейнеры
+
+
+---
+
+Подэтап S — QTreeView
+
+
+---
+
+1. Модель
+
+type_name: QTreeView
+qt_class: QTreeView
+palette_group: Data
+default_size: 200x140
+
+
+---
+
+2. Свойства
+
+header_labels: list[str] = []
+
+
+---
+
+3. Нормализация
+
+если не список → []
+каждый элемент → str
+
+
+---
+
+4. Factory
+
+create
+
+QTreeView()
+
+apply
+
+создать QStandardItemModel
+setHorizontalHeaderLabels(header_labels)
+setModel(model)
+
+
+---
+
+5. PropertyPanel
+
+header_labels → string_list
+
+
+---
+
+6. Export
+
+QStandardItemModel
+setHorizontalHeaderLabels
+setModel
+
+пример
+
+self.tree_view_1 = QTreeView(self)
+self.tree_view_1.setGeometry(100, 80, 200, 140)
+
+model = QStandardItemModel()
+model.setHorizontalHeaderLabels(["A", "B"])
+self.tree_view_1.setModel(model)
+
+
+---
+
+7. Import
+
+Парсить:
+
+QStandardItemModel
+setHorizontalHeaderLabels
+setModel
+
+
+---
+
+8. Проверки
+
+1. создание
+2. заголовки
+3. пустые заголовки
+4. JSON round-trip
+5. Python round-trip
+6. вложенные контейнеры
+
+
+---
+
+Подэтап T — QTableView
+
+
+---
+
+1. Модель
+
+type_name: QTableView
+qt_class: QTableView
+palette_group: Data
+default_size: 220x140
+
+
+---
+
+2. Свойства
+
+column_count: int = 3
+header_labels: list[str] = []
+
+
+---
+
+3. Нормализация
+
+column_count >= 0
+
+header_labels:
+  если больше column_count → обрезать
+  каждый элемент → str
+
+
+---
+
+4. Factory
+
+create
+
+QTableView()
+
+apply
+
+создать QStandardItemModel
+setColumnCount(column_count)
+setHorizontalHeaderLabels(header_labels)
+setModel(model)
+
+
+---
+
+5. PropertyPanel
+
+column_count → QSpinBox
+header_labels → string_list
+
+
+---
+
+6. Export
+
+QStandardItemModel
+setColumnCount
+setHorizontalHeaderLabels
+setModel
+
+пример
+
+self.table_view_1 = QTableView(self)
+self.table_view_1.setGeometry(100, 80, 220, 140)
+
+model = QStandardItemModel()
+model.setColumnCount(3)
+model.setHorizontalHeaderLabels(["A", "B", "C"])
+self.table_view_1.setModel(model)
+
+
+---
+
+7. Import
+
+Парсить:
+
+setColumnCount
+setHorizontalHeaderLabels
+setModel
+
+
+---
+
+8. Проверки
+
+1. создание
+2. изменение column_count
+3. заголовки
+4. обрезка header_labels
+5. JSON round-trip
+6. Python round-trip
+7. вложенные контейнеры
+
+
+---
+
+Итог
+
+Ты сейчас закрыл:
+
+базовые input
+
+display
+
+data widgets (item-based + model-based)
+
+дату/время
+
+горячие клавиши
+
+шрифты
+
+
+
+---
+
+Следующий логичный шаг
+
+Есть два варианта (выбери):
+
+Вариант A — углубление
+
+- добавить содержимое в QTableWidget
+- добавить items в QTreeWidget
+- улучшить PropertyPanel редакторы
+
+Вариант B — системный уровень (рекомендую)
+
+- undo/redo
+- copy/paste виджетов
+- multi-select
+- выравнивание
+- layout helpers
+
+
+---
+
+Если продолжаем — лучше идти в системный слой.

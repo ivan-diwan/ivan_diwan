@@ -1,0 +1,937 @@
+Подэтап H — QTableWidget
+
+Подключай QTableWidget сразу после полного закрытия QListWidget.
+Архитектуру не меняй. Повтори тот же pipeline для табличного leaf-виджета.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QTableWidget проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QTableWidget
+
+Считай QTableWidget обычным leaf-объектом.
+
+Тип
+
+type_name = "QTableWidget"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Data"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QTableWidget"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+row_count: int
+
+column_count: int
+
+horizontal_headers: list[str]
+
+vertical_headers: list[str]
+
+
+Значения по умолчанию
+
+row_count = 3
+
+column_count = 3
+
+horizontal_headers = []
+
+vertical_headers = []
+
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+содержимое ячеек
+
+сортировку
+
+выбор по ячейкам
+
+edit triggers
+
+selection behavior
+
+alternating row colors
+
+show grid
+
+corner button
+
+spans
+
+
+Сначала закрой устойчивый базовый уровень структуры таблицы.
+
+
+---
+
+4. Добавь QTableWidget в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QTableWidget"
+
+display_name = "Table Widget"
+
+category = "Data"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Data"
+
+creatable_by_user = true
+
+name_prefix = "table_widget"
+
+
+default_size
+
+Возьми:
+
+width = 220
+
+height = 140
+
+
+property_schema
+
+row_count
+
+data_type = "int"
+
+required = true
+
+default = 3
+
+editor = "integer"
+
+
+column_count
+
+data_type = "int"
+
+required = true
+
+default = 3
+
+editor = "integer"
+
+
+horizontal_headers
+
+data_type = "list[str]"
+
+required = true
+
+default = []
+
+editor = "string_list"
+
+
+vertical_headers
+
+data_type = "list[str]"
+
+required = true
+
+`default = []
+
+editor = "string_list"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Table Widget появился в группе Data
+
+drag source передает type_name = "QTableWidget"
+
+
+Не переходи дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QTableWidget в FormDocument
+
+Специальной логики не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Добавь QTableWidget в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QTableWidget":
+
+создавай QTableWidget
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setRowCount(row_count)
+
+
+2. setColumnCount(column_count)
+
+
+3. setHorizontalHeaderLabels(horizontal_headers) — только если список не пуст
+
+
+4. setVerticalHeaderLabels(vertical_headers) — только если список не пуст
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй именно так:
+
+1. размеры таблицы
+
+
+2. заголовки столбцов
+
+
+3. заголовки строк
+
+
+
+
+---
+
+Почему это важно
+
+Сначала должны существовать строки и столбцы.
+Только потом можно применять заголовки.
+
+
+---
+
+8. Нормализуй длину заголовков относительно размеров таблицы
+
+Сделай отдельный helper нормализации свойств таблицы.
+
+Например:
+
+_normalize_table_widget_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если row_count < 0:
+
+ставь 0
+
+
+Правило 2
+
+Если column_count < 0:
+
+ставь 0
+
+
+Правило 3
+
+Если horizontal_headers отсутствует:
+
+ставь []
+
+
+Правило 4
+
+Если vertical_headers отсутствует:
+
+ставь []
+
+
+Правило 5
+
+Все элементы заголовков приводи к str
+
+Правило 6
+
+Длина horizontal_headers не должна превышать column_count
+
+Если больше:
+
+обрезай до column_count
+
+
+Правило 7
+
+Длина vertical_headers не должна превышать row_count
+
+Если больше:
+
+обрезай до row_count
+
+
+
+---
+
+9. Не достраивай заголовки автоматически без необходимости
+
+На этой очереди не заполняй недостающие заголовки автоматически значениями вида:
+
+Column 1
+
+Row 1
+
+
+Держи простое правило:
+
+если список заголовков пустой, exporter/factory не задает labels
+
+если список задан частично, применяется только он
+
+
+Не усложняй модель.
+
+
+---
+
+10. Добавь refresh для QTableWidget
+
+Проверь, что refresh корректно переустанавливает:
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+После изменения из PropertyPanel таблица на canvas должна обновляться без полного rebuild canvas.
+
+
+---
+
+11. Добавь QTableWidget в PropertyPanel
+
+Панель свойств должна показывать QTableWidget как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+Типы редакторов
+
+Используй:
+
+row_count → QSpinBox
+
+column_count → QSpinBox
+
+horizontal_headers → string_list
+
+vertical_headers → string_list
+
+
+
+---
+
+12. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для row_count
+
+update_entity_property(entity_id, "row_count", new_value)
+
+
+Для column_count
+
+update_entity_property(entity_id, "column_count", new_value)
+
+
+Для horizontal_headers
+
+update_entity_property(entity_id, "horizontal_headers", new_value)
+
+
+Для vertical_headers
+
+update_entity_property(entity_id, "vertical_headers", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(entity_id)
+
+
+4. property_panel.rebuild()
+
+
+
+
+---
+
+13. Учти зависимость заголовков от размеров таблицы
+
+После изменения:
+
+row_count
+
+column_count
+
+
+обязательно прогоняй свойства через helper нормализации.
+
+Это нужно, чтобы:
+
+при уменьшении column_count обрезались лишние horizontal_headers
+
+при уменьшении row_count обрезались лишние vertical_headers
+
+
+
+---
+
+14. Зафиксируй формат string_list для заголовков
+
+Для:
+
+horizontal_headers
+
+vertical_headers
+
+
+используй тот же редактор:
+
+одна строка = один заголовок
+
+
+Не делай пока отдельную табличную форму редактирования заголовков.
+
+
+---
+
+15. Проверь работу CanvasEditor
+
+QTableWidget не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+16. Проверь serializer
+
+QTableWidget не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "row_count": 3,
+  "column_count": 4,
+  "horizontal_headers": ["A", "B", "C", "D"],
+  "vertical_headers": ["1", "2", "3"]
+}
+
+Проверь:
+
+заголовки остаются массивами строк
+
+размеры остаются int
+
+
+
+---
+
+17. Добавь экспорт QTableWidget в PythonExporter
+
+В exporter добавь отдельную ветку для QTableWidget.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setRowCount(...)
+
+
+5. setColumnCount(...)
+
+
+6. setHorizontalHeaderLabels([...]) — если список не пуст
+
+
+7. setVerticalHeaderLabels([...]) — если список не пуст
+
+
+
+Пример
+
+self.table_widget_1 = QTableWidget(self)
+self.table_widget_1.setObjectName("table_widget_1")
+self.table_widget_1.setGeometry(100, 80, 220, 140)
+self.table_widget_1.setRowCount(3)
+self.table_widget_1.setColumnCount(4)
+self.table_widget_1.setHorizontalHeaderLabels(["A", "B", "C", "D"])
+self.table_widget_1.setVerticalHeaderLabels(["1", "2", "3"])
+
+
+---
+
+18. Не экспортируй содержимое ячеек
+
+На этой очереди не генерируй:
+
+setItem(...)
+
+QTableWidgetItem(...)
+
+
+Если в модели нет ячеек, exporter не должен пытаться их придумывать.
+
+
+---
+
+19. Добавь импорт QTableWidget в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QTableWidget(parent)
+
+setRowCount(...)
+
+setColumnCount(...)
+
+setHorizontalHeaderLabels(...)
+
+setVerticalHeaderLabels(...)
+
+
+Восстанавливай свойства
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+После полного разбора прогоняй через helper нормализации.
+
+
+---
+
+20. Игнорируй ячейки как unsupported case
+
+Если importer встретил:
+
+setItem(...)
+
+создание QTableWidgetItem(...)
+
+
+на этой очереди не пытайся восстанавливать содержимое ячеек.
+
+Зафиксируй это как unsupported для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+21. Проверь round-trip для QTableWidget
+
+Сделай обязательный цикл:
+
+1. создать QTableWidget в редакторе
+
+
+2. изменить:
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+22. Подготовь тестовые сценарии для QTableWidget
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QTableWidget
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — размеры
+
+задать:
+
+row_count = 5
+
+column_count = 4
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+таблица отображает нужное число строк и столбцов
+
+
+Сценарий 3 — заголовки столбцов
+
+задать:
+
+horizontal_headers = ["A", "B", "C", "D"]
+
+
+
+Проверить:
+
+заголовки обновились
+
+JSON обновился
+
+
+Сценарий 4 — заголовки строк
+
+задать:
+
+vertical_headers = ["1", "2", "3", "4", "5"]
+
+
+
+Проверить:
+
+заголовки обновились
+
+JSON обновился
+
+
+Сценарий 5 — уменьшение размеров
+
+сначала задать больше строк и столбцов с заголовками
+
+потом уменьшить row_count и column_count
+
+
+Проверить:
+
+заголовки обрезались корректно
+
+документ валиден
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QTableWidget внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+23. Проверь работу в special-container контекстах
+
+QTableWidget как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства.
+
+
+---
+
+24. Зафиксируй критерий завершения QTableWidget
+
+Считай QTableWidget полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+25. Что делать сразу после закрытия QTableWidget
+
+Переходи к:
+
+Подэтап I — QTreeWidget
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+column_count
+
+header_labels
+
+
+Элементы дерева пока не подключай.

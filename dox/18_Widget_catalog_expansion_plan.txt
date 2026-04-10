@@ -1,0 +1,1489 @@
+План расширения каталога виджетов
+
+Подключай новые типы только полным циклом.
+Не считай виджет добавленным, пока он не проходит:
+
+1. WidgetRegistry
+
+
+2. PropertyPanel
+
+
+3. WidgetFactory
+
+
+4. CanvasEditor
+
+
+5. FormSerializer
+
+
+6. PythonExporter
+
+
+7. PythonImporter
+
+
+8. round-trip проверку
+
+
+
+Ниже — порядок и правила подключения следующей очереди типов.
+
+
+---
+
+1. Общий порядок следующей очереди
+
+Подключай в таком порядке:
+
+1. QSpinBox
+
+
+2. QDoubleSpinBox
+
+
+3. QSlider
+
+
+4. QProgressBar
+
+
+5. QTextEdit
+
+
+6. QPlainTextEdit
+
+
+7. QListWidget
+
+
+8. QTableWidget
+
+
+9. QTreeWidget
+
+
+
+Не подключай одновременно несколько новых типов, пока предыдущий не закрыт полностью.
+
+
+---
+
+2. Единый шаблон подключения нового виджета
+
+Для каждого нового типа соблюдай один и тот же шаблон.
+
+
+---
+
+Шаг 1. Описание типа в WidgetRegistry
+
+Добавь в registry/builtins.py полное определение типа:
+
+type_name
+
+display_name
+
+category
+
+editor_kind
+
+palette_visible
+
+palette_group
+
+creatable_by_user
+
+name_prefix
+
+default_size
+
+property_schema
+
+allowed_parent_types
+
+allowed_child_types
+
+qt_class_name
+
+geometry_edit_mode
+
+movable
+
+resizable
+
+deletable_directly
+
+
+
+---
+
+Шаг 2. Поддержка в WidgetFactory
+
+Добавь:
+
+создание реального PySide6-объекта
+
+применение geometry
+
+применение всех поддержанных свойств
+
+
+
+---
+
+Шаг 3. Поддержка в PropertyPanel
+
+Добавь отображение:
+
+основного блока
+
+geometry
+
+типозависимых свойств
+
+
+Для каждого свойства используй правильный редактор через PropertyEditorFactory.
+
+
+---
+
+Шаг 4. Поддержка в serializer
+
+Проверь, что свойства стабильно сохраняются в JSON и читаются обратно.
+
+
+---
+
+Шаг 5. Поддержка в exporter
+
+Добавь генерацию Python-кода:
+
+создание объекта
+
+применение geometry
+
+применение свойств
+
+
+
+---
+
+Шаг 6. Поддержка в importer
+
+Добавь обратное распознавание:
+
+создания объекта
+
+geometry
+
+свойств
+
+
+
+---
+
+Шаг 7. Тестирование
+
+Прогони цикл:
+
+1. создать объект в редакторе
+
+
+2. изменить свойства
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ до и после
+
+
+
+
+---
+
+3. Подключение QSpinBox
+
+Подключай первым.
+
+
+---
+
+3.1. Registry
+
+Добавь тип QSpinBox.
+
+Свойства
+
+value: int
+
+minimum: int
+
+maximum: int
+
+step: int
+
+prefix: str
+
+suffix: str
+
+
+Значения по умолчанию
+
+value = 0
+
+minimum = 0
+
+maximum = 99
+
+step = 1
+
+prefix = ""
+
+suffix = ""
+
+
+default_size
+
+Например:
+
+width = 100
+
+height = 26
+
+
+Родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+
+---
+
+3.2. PropertyPanel
+
+Показывай:
+
+value
+
+minimum
+
+maximum
+
+step
+
+prefix
+
+suffix
+
+
+Редакторы
+
+value → QSpinBox
+
+minimum → QSpinBox
+
+maximum → QSpinBox
+
+step → QSpinBox
+
+prefix → QLineEdit
+
+suffix → QLineEdit
+
+
+
+---
+
+3.3. WidgetFactory
+
+Создавай QSpinBox.
+
+Применяй:
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setPrefix(...)
+
+setSuffix(...)
+
+setValue(...)
+
+
+Применяй свойства в таком порядке:
+
+1. minimum
+
+
+2. maximum
+
+
+3. step
+
+
+4. prefix
+
+
+5. suffix
+
+
+6. value
+
+
+
+Сначала всегда ставь диапазон, потом значение.
+
+
+---
+
+3.4. Exporter
+
+Генерируй:
+
+self.spin_box_1 = QSpinBox(self)
+self.spin_box_1.setObjectName("spin_box_1")
+self.spin_box_1.setGeometry(x, y, w, h)
+self.spin_box_1.setMinimum(0)
+self.spin_box_1.setMaximum(99)
+self.spin_box_1.setSingleStep(1)
+self.spin_box_1.setPrefix("")
+self.spin_box_1.setSuffix("")
+self.spin_box_1.setValue(0)
+
+Если prefix или suffix пустые, можешь:
+
+либо не генерировать эти строки
+
+либо генерировать всегда
+
+
+Для стабильности лучше генерировать только отличающиеся от пустого значения, если exporter уже так устроен для других свойств.
+
+
+---
+
+3.5. Importer
+
+Распознавай:
+
+QSpinBox(parent)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setPrefix(...)
+
+setSuffix(...)
+
+setValue(...)
+
+
+Восстанавливай свойства в документ.
+
+
+---
+
+3.6. Тесты для QSpinBox
+
+Проверь:
+
+Сценарий 1
+
+создать QSpinBox
+
+изменить value
+
+
+Сценарий 2
+
+изменить minimum, maximum, step
+
+
+Сценарий 3
+
+изменить prefix, suffix
+
+
+Сценарий 4
+
+JSON round-trip
+
+
+Сценарий 5
+
+Python export/import round-trip
+
+
+
+---
+
+4. Подключение QDoubleSpinBox
+
+Делай сразу после QSpinBox, потому что логика почти та же.
+
+
+---
+
+4.1. Registry
+
+Добавь свойства:
+
+value: float
+
+minimum: float
+
+maximum: float
+
+step: float
+
+decimals: int
+
+prefix: str
+
+suffix: str
+
+
+Значения по умолчанию
+
+value = 0.0
+
+minimum = 0.0
+
+maximum = 99.0
+
+step = 1.0
+
+decimals = 2
+
+prefix = ""
+
+suffix = ""
+
+
+
+---
+
+4.2. PropertyPanel
+
+Используй:
+
+QDoubleSpinBox для float-свойств
+
+QSpinBox для decimals
+
+QLineEdit для prefix и suffix
+
+
+
+---
+
+4.3. WidgetFactory
+
+Применяй:
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setDecimals(...)
+
+setPrefix(...)
+
+setSuffix(...)
+
+setValue(...)
+
+
+
+---
+
+4.4. Exporter
+
+Генерируй:
+
+QDoubleSpinBox
+
+все перечисленные setter-методы
+
+
+
+---
+
+4.5. Importer
+
+Восстанавливай:
+
+float-значения
+
+decimals
+
+
+
+---
+
+4.6. Тесты
+
+Проверь:
+
+дробное значение
+
+дробный шаг
+
+изменение точности
+
+export/import round-trip
+
+
+
+---
+
+5. Подключение QSlider
+
+Подключай после spin boxes.
+
+
+---
+
+5.1. Registry
+
+Свойства:
+
+orientation: str
+
+value: int
+
+minimum: int
+
+maximum: int
+
+step: int
+
+
+Значения по умолчанию
+
+orientation = "horizontal"
+
+value = 0
+
+minimum = 0
+
+maximum = 100
+
+step = 1
+
+
+default_size
+
+для horizontal, например 120 x 24
+
+
+
+---
+
+5.2. PropertyPanel
+
+Показывай:
+
+orientation
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+Редакторы
+
+orientation → dropdown
+
+остальные → integer editors
+
+
+
+---
+
+5.3. WidgetFactory
+
+Применяй:
+
+setOrientation(...)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setValue(...)
+
+
+
+---
+
+5.4. Exporter
+
+Генерируй:
+
+QSlider
+
+setOrientation(Qt.Horizontal/Qt.Vertical)
+
+диапазон
+
+шаг
+
+значение
+
+
+
+---
+
+5.5. Importer
+
+Распознавай:
+
+setOrientation(...)
+
+setMinimum(...)
+
+setMaximum(...)
+
+setSingleStep(...)
+
+setValue(...)
+
+
+
+---
+
+5.6. Тесты
+
+Проверь:
+
+horizontal
+
+vertical
+
+диапазон
+
+значение
+
+round-trip
+
+
+
+---
+
+6. Подключение QProgressBar
+
+Подключай после QSlider.
+
+
+---
+
+6.1. Registry
+
+Свойства:
+
+value: int
+
+minimum: int
+
+maximum: int
+
+text_visible: bool
+
+
+Значения по умолчанию
+
+value = 0
+
+minimum = 0
+
+maximum = 100
+
+text_visible = true
+
+
+
+---
+
+6.2. PropertyPanel
+
+Показывай:
+
+value
+
+minimum
+
+maximum
+
+text_visible
+
+
+
+---
+
+6.3. WidgetFactory
+
+Применяй:
+
+setMinimum(...)
+
+setMaximum(...)
+
+setValue(...)
+
+setTextVisible(...)
+
+
+
+---
+
+6.4. Exporter
+
+Генерируй соответствующие setters.
+
+
+---
+
+6.5. Importer
+
+Восстанавливай эти же свойства.
+
+
+---
+
+6.6. Тесты
+
+Проверь:
+
+изменение процента
+
+скрытие текста
+
+round-trip
+
+
+
+---
+
+7. Подключение QTextEdit
+
+Подключай после прогрессбара.
+
+
+---
+
+7.1. Registry
+
+Свойства:
+
+text: str
+
+placeholder: str
+
+read_only: bool
+
+
+Значения по умолчанию
+
+text = ""
+
+placeholder = ""
+
+read_only = false
+
+
+default_size
+
+Например:
+
+160 x 80
+
+
+
+---
+
+7.2. PropertyPanel
+
+Показывай:
+
+text
+
+placeholder
+
+read_only
+
+
+Редакторы
+
+text → multiline
+
+placeholder → text
+
+read_only → checkbox
+
+
+
+---
+
+7.3. WidgetFactory
+
+Применяй:
+
+setPlainText(...) или setText(...)
+
+
+Для устойчивости первой версии лучше:
+
+использовать обычный plain text смысл
+
+хранить и экспортировать текст как plain text
+
+
+Применяй:
+
+setPlaceholderText(...), если виджет поддерживает
+
+setReadOnly(...)
+
+
+
+---
+
+7.4. Exporter
+
+Генерируй:
+
+QTextEdit
+
+setPlainText(...)
+
+setReadOnly(...)
+
+setPlaceholderText(...), если используешь его
+
+
+
+---
+
+7.5. Importer
+
+Восстанавливай:
+
+текст
+
+read_only
+
+placeholder
+
+
+Если exporter пишет setPlainText, importer должен ловить именно это.
+
+
+---
+
+7.6. Тесты
+
+Проверь:
+
+многострочный текст
+
+read_only
+
+round-trip
+
+
+
+---
+
+8. Подключение QPlainTextEdit
+
+Делай почти тем же способом.
+
+
+---
+
+8.1. Registry
+
+Свойства:
+
+text: str
+
+placeholder: str
+
+read_only: bool
+
+
+
+---
+
+8.2. WidgetFactory
+
+Применяй:
+
+setPlainText(...)
+
+setPlaceholderText(...)
+
+setReadOnly(...)
+
+
+
+---
+
+8.3. Exporter / Importer
+
+Используй те же свойства, но отдельный тип виджета.
+
+
+---
+
+8.4. Тесты
+
+Проверь:
+
+многострочный текст
+
+пустой текст
+
+round-trip
+
+
+
+---
+
+9. Подключение QListWidget
+
+Подключай после текстовых редакторов.
+
+
+---
+
+9.1. Registry
+
+Свойства:
+
+items: list[str]
+
+current_row: int
+
+
+Значения по умолчанию
+
+items = []
+
+current_row = -1
+
+
+default_size
+
+Например:
+
+160 x 100
+
+
+
+---
+
+9.2. PropertyPanel
+
+Показывай:
+
+items
+
+current_row
+
+
+Редакторы
+
+items → string_list
+
+current_row → integer
+
+
+
+---
+
+9.3. WidgetFactory
+
+Применяй:
+
+clear()
+
+addItems(items)
+
+setCurrentRow(...), если индекс допустим
+
+
+
+---
+
+9.4. Exporter
+
+Генерируй:
+
+QListWidget
+
+addItems([...])
+
+setCurrentRow(...), если индекс корректен
+
+
+
+---
+
+9.5. Importer
+
+Распознавай:
+
+addItem(...)
+
+addItems(...)
+
+setCurrentRow(...)
+
+
+Если exporter генерирует только addItems, импортируй этот паттерн в первую очередь.
+
+
+---
+
+9.6. Тесты
+
+Проверь:
+
+список из нескольких строк
+
+выбор строки
+
+round-trip
+
+
+
+---
+
+10. Подключение QTableWidget
+
+Подключай после QListWidget.
+
+
+---
+
+10.1. Registry
+
+Свойства:
+
+row_count: int
+
+column_count: int
+
+horizontal_headers: list[str]
+
+vertical_headers: list[str]
+
+
+Значения по умолчанию
+
+row_count = 3
+
+column_count = 3
+
+horizontal_headers = []
+
+vertical_headers = []
+
+
+На этой очереди не добавляй редактор содержимого ячеек.
+
+
+---
+
+10.2. PropertyPanel
+
+Показывай:
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+
+---
+
+10.3. WidgetFactory
+
+Применяй:
+
+setRowCount(...)
+
+setColumnCount(...)
+
+setHorizontalHeaderLabels(...), если список не пуст
+
+setVerticalHeaderLabels(...), если список не пуст
+
+
+
+---
+
+10.4. Exporter
+
+Генерируй:
+
+QTableWidget
+
+row/column count
+
+header labels
+
+
+
+---
+
+10.5. Importer
+
+Распознавай:
+
+setRowCount(...)
+
+setColumnCount(...)
+
+setHorizontalHeaderLabels(...)
+
+setVerticalHeaderLabels(...)
+
+
+
+---
+
+10.6. Тесты
+
+Проверь:
+
+размеры таблицы
+
+заголовки
+
+round-trip
+
+
+
+---
+
+11. Подключение QTreeWidget
+
+Подключай после QTableWidget.
+
+
+---
+
+11.1. Registry
+
+Свойства:
+
+header_labels: list[str]
+
+column_count: int
+
+
+Значения по умолчанию
+
+column_count = 1
+
+header_labels = []
+
+
+На этой очереди не добавляй полное редактирование tree items.
+
+
+---
+
+11.2. PropertyPanel
+
+Показывай:
+
+column_count
+
+header_labels
+
+
+
+---
+
+11.3. WidgetFactory
+
+Применяй:
+
+setColumnCount(...)
+
+setHeaderLabels(...), если список не пуст
+
+
+
+---
+
+11.4. Exporter
+
+Генерируй:
+
+QTreeWidget
+
+column count
+
+header labels
+
+
+
+---
+
+11.5. Importer
+
+Распознавай:
+
+setColumnCount(...)
+
+setHeaderLabels(...)
+
+
+
+---
+
+11.6. Тесты
+
+Проверь:
+
+колонки
+
+заголовки
+
+round-trip
+
+
+
+---
+
+12. Для каждого нового типа обновляй palette осознанно
+
+Добавляй тип в палитру только после того, как он уже проходит:
+
+создание
+
+свойства
+
+экспорт
+
+импорт
+
+
+До этого можешь держать palette_visible = false на стадии внутренней разработки.
+
+
+---
+
+13. Для каждого нового типа обновляй exporter/importer одновременно
+
+Не допускай ситуации:
+
+тип уже можно создать в редакторе
+
+но exporter/importer его не понимает
+
+
+Если тип появился в палитре, он обязан пройти полный pipeline.
+
+
+---
+
+14. Зафиксируй контрольный список на каждый новый тип
+
+Перед тем как считать тип закрытым, проверь:
+
+Документ
+
+создается
+
+хранится в JSON
+
+
+UI
+
+виден в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+ресайзится
+
+удаляется
+
+
+Свойства
+
+показываются
+
+редактируются
+
+обновляют canvas
+
+
+Export/import
+
+экспортируется
+
+импортируется
+
+проходит round-trip
+
+
+
+---
+
+15. Не подключай пока сложные модели данных
+
+Не добавляй на этой очереди:
+
+полноценное содержимое QTableWidget по ячейкам
+
+полноценные tree items у QTreeWidget
+
+data models для QListView/QTreeView/QTableView
+
+
+Сначала подключай только базовый уровень конфигурации этих виджетов.
+
+
+---
+
+16. После этой очереди переходи к следующей
+
+Следующая очередь после закрытия этих 9 типов:
+
+QDateEdit
+
+QTimeEdit
+
+QDateTimeEdit
+
+QCalendarWidget
+
+
+И только потом:
+
+QFontComboBox
+
+QKeySequenceEdit
+
+QListView
+
+QTreeView
+
+QTableView
+
+QDial
+
+QLCDNumber
+
+
+
+---
+
+17. Дальше держи только маленькие итерации
+
+На одном подэтапе подключай не больше:
+
+одного простого типа или
+
+двух очень близких типов, как QSpinBox и QDoubleSpinBox
+
+
+Не делай большие пачки, иначе потеряешь устойчивость системы.
+
+
+---
+
+18. Следующий практический шаг
+
+Начинай со следующего конкретного подэтапа:
+
+Подэтап A — QSpinBox
+
+Закрой полностью:
+
+1. registry
+
+
+2. property schema
+
+
+3. property panel
+
+
+4. widget factory
+
+
+5. serializer
+
+
+6. exporter
+
+
+7. importer
+
+
+8. round-trip test
+
+
+
+Только после этого переходи к QDoubleSpinBox.

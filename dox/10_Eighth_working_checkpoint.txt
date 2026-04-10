@@ -1,0 +1,1068 @@
+Восьмая рабочая контрольная точка
+
+Собери строго это состояние:
+
+работает QSplitter как special-container с двумя внутренними панелями
+
+при добавлении QSplitter автоматически создаются две внутренние панели
+
+панели не видны в палитре и не выбираются как обычные объекты формы
+
+QSplitter можно двигать и менять размер как единый объект
+
+можно менять orientation
+
+можно управлять sizes
+
+обычные объекты можно бросать в левую/правую или верхнюю/нижнюю панель
+
+реальные дочерние объекты живут во внутренних панелях, а не напрямую в QSplitter
+
+корректно обновляется JSON snapshot
+
+корректно удаляется QSplitter вместе с панелями и содержимым
+
+
+Не переходи к QWizard, пока этот блок не станет устойчивым.
+
+
+---
+
+1. Цель восьмой контрольной точки
+
+Закрой container-паттерн с разделением области.
+
+Пользователь должен мочь:
+
+1. добавить QSplitter
+
+
+2. получить две панели
+
+
+3. изменить направление разделения
+
+
+4. добавить кнопку в первую панель
+
+
+5. добавить label во вторую панель
+
+
+6. изменять размеры панелей
+
+
+7. двигать и ресайзить весь splitter
+
+
+8. удалить splitter вместе со всем содержимым
+
+
+
+
+---
+
+2. Зафиксируй внутреннюю модель splitter
+
+Не используй для первых двух панелей обычные внешние контейнеры палитры.
+Сделай отдельную внутреннюю сущность.
+
+Добавь тип:
+
+SplitterPane
+
+
+
+---
+
+3. Доведи определения типов в WidgetRegistry
+
+Проверь и зафиксируй:
+
+QSplitter
+
+SplitterPane
+
+
+
+---
+
+Для QSplitter зафиксируй
+
+editor_kind = "special_container"
+
+palette_visible = true
+
+creatable_by_user = true
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Свойства
+
+orientation: str
+
+sizes: list[int]
+
+
+Допустимые значения orientation
+
+horizontal
+
+vertical
+
+
+Разрешенные родители
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+ContainerContent
+
+
+Разрешенные прямые дети
+
+только SplitterPane
+
+
+Special actions
+
+set_splitter_orientation
+
+set_splitter_sizes
+
+
+Auto-create
+
+две SplitterPane
+
+
+Qt-класс
+
+QSplitter
+
+
+
+---
+
+Для SplitterPane зафиксируй
+
+editor_kind = "internal"
+
+palette_visible = false
+
+creatable_by_user = false
+
+movable = false
+
+resizable = false
+
+deletable_directly = false
+
+
+Свойства
+
+пусто: {}
+
+
+Разрешенный родитель
+
+только QSplitter
+
+
+Разрешенные дети
+
+На этой точке разреши:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Qt-класс
+
+внутренне используй QWidget
+
+
+Geometry mode
+
+hidden
+
+
+
+---
+
+4. Добавь специальные операции в FormDocument
+
+В document/form_document.py реализуй:
+
+create_splitter(parent_id, geometry, orientation="horizontal", name=None) -> EntityModel
+
+get_splitter_panes(splitter_id) -> list[EntityModel]
+
+set_splitter_orientation(splitter_id, orientation) -> None
+
+set_splitter_sizes(splitter_id, sizes: list[int]) -> None
+
+
+На этой точке не реализуй динамическое добавление третьей панели.
+Зафиксируй splitter на двух панелях.
+
+
+---
+
+5. Реализация create_splitter(...)
+
+Сделай строго так:
+
+1. создать сущность QSplitter
+
+
+2. задать свойства:
+
+orientation
+
+sizes = [1, 1]
+или
+
+реальные стартовые размеры по ширине/высоте geometry
+
+
+
+3. создать первую SplitterPane
+
+
+4. создать вторую SplitterPane
+
+
+5. назначить им:
+
+parent_id = splitter_id
+
+order = 0 и order = 1
+
+
+
+6. задать им geometry:
+
+на первом этапе можно условную, согласованную с размерами splitter
+
+
+
+7. пометить документ dirty
+
+
+8. вернуть QSplitter
+
+
+
+
+---
+
+6. Реализация get_splitter_panes(...)
+
+Сделай:
+
+1. взять прямых детей QSplitter
+
+
+2. отфильтровать только SplitterPane
+
+
+3. отсортировать по order
+
+
+
+На этой точке их должно быть ровно две.
+
+
+---
+
+7. Реализация set_splitter_orientation(...)
+
+Сделай:
+
+1. проверить существование splitter
+
+
+2. проверить допустимость значения
+
+
+3. обновить properties["orientation"]
+
+
+4. пометить документ dirty
+
+
+
+После обновления:
+
+canvas должен перестроить splitter
+
+JSON должен обновиться
+
+
+
+---
+
+8. Реализация set_splitter_sizes(...)
+
+Сделай:
+
+1. проверить существование splitter
+
+
+2. проверить, что список длинны 2
+
+
+3. проверить, что значения положительные
+
+
+4. записать properties["sizes"]
+
+
+5. пометить документ dirty
+
+
+
+На этой точке этого достаточно.
+
+
+---
+
+9. Добавь методы в DocumentController
+
+В controller/document_controller.py реализуй:
+
+create_splitter_from_drop(target_parent_id, x, y)
+
+set_splitter_orientation(splitter_id, orientation)
+
+set_splitter_sizes(splitter_id, sizes)
+
+
+
+---
+
+Реализация create_splitter_from_drop(...)
+
+1. взять дефолтный размер из registry
+
+
+2. собрать geometry
+
+
+3. вызвать document.create_splitter(...)
+
+
+4. обновить JSON snapshot
+
+
+5. перестроить canvas
+
+
+6. выбрать splitter
+
+
+7. показать свойства splitter в PropertyPanel
+
+
+
+
+---
+
+10. Создай SplitterItemView
+
+Создай файл:
+
+canvas/views/splitter_item_view.py
+
+Сделай отдельный класс.
+
+
+---
+
+Поля
+
+entity_id
+
+inner_widget (QSplitter)
+
+pane_entity_ids
+
+pane_widgets_by_id
+
+orientation
+
+sizes
+
+
+
+---
+
+Методы
+
+bind_entity(entity, inner_widget)
+
+refresh_from_document(entity, panes)
+
+rebuild_panes(panes)
+
+set_orientation(orientation)
+
+set_sizes(sizes)
+
+get_pane_widget(pane_id) -> QWidget | None
+
+resolve_pane_at(local_pos) -> pane_id | None
+
+set_selected(value)
+
+
+
+---
+
+11. Реализуй WidgetFactory для QSplitter и SplitterPane
+
+В factory/widget_factory.py добавь поддержку:
+
+QSplitter
+
+SplitterPane
+
+
+
+---
+
+Для QSplitter
+
+Создавай:
+
+реальный QSplitter
+
+
+Применяй:
+
+geometry
+
+orientation
+
+
+sizes лучше применять в самом SplitterItemView, потому что там уже будут реальные pane widgets.
+
+
+---
+
+Для SplitterPane
+
+Создавай:
+
+обычный QWidget
+
+
+Не делай отдельный пользовательский item view для SplitterPane.
+
+
+---
+
+12. Подключи SplitterItemView в CanvasEditor
+
+В dispatch добавь:
+
+QSplitter -> SplitterItemView
+
+
+
+---
+
+13. Не создавай отдельный обычный view для SplitterPane
+
+SplitterPane:
+
+существует в документе
+
+существует визуально как внутренняя панель splitter
+
+не должен рисоваться как отдельный объект формы
+
+не должен выбираться как обычный объект canvas
+
+
+
+---
+
+14. Реализуй rebuild_panes(...) у SplitterItemView
+
+Сделай так:
+
+1. очистить текущий QSplitter
+
+
+2. получить SplitterPane из документа
+
+
+3. отсортировать по order
+
+
+4. для каждой панели:
+
+создать внутренний QWidget
+
+добавить его в QSplitter
+
+сохранить соответствие:
+
+pane_id -> pane_widget
+
+
+
+
+5. применить orientation
+
+
+6. применить sizes
+
+
+
+
+---
+
+15. Отображай дочерние объекты SplitterPane
+
+Любой объект, у которого:
+
+parent_id = splitter_pane_id
+
+
+должен визуально строиться внутри соответствующего pane_widget.
+
+
+---
+
+В CanvasEditor
+
+добавь в get_visual_parent_for_entity(entity) правило:
+
+Если родитель — SplitterPane, тогда:
+
+найти SplitterItemView родительского QSplitter
+
+получить pane_widget нужной панели
+
+использовать его как визуального родителя
+
+
+
+---
+
+16. Подключи изменение orientation
+
+Сделай двустороннюю синхронизацию.
+
+
+---
+
+Если пользователь меняет orientation через PropertyPanel
+
+1. PropertyPanel вызывает контроллер
+
+
+2. контроллер вызывает set_splitter_orientation(...)
+
+
+3. документ обновляется
+
+
+4. canvas обновляет splitter
+
+
+5. JSON обновляется
+
+
+
+На этой точке не нужно визуальное изменение orientation мышью на canvas.
+Делай это только через свойства.
+
+
+---
+
+17. Подключи изменение sizes
+
+Сделай два режима:
+
+Базовый обязательный режим
+
+Изменение sizes через PropertyPanel
+
+Дополнительный рабочий режим
+
+Если пользователь двигает разделитель в реальном QSplitter, фиксируй новые размеры обратно в документ.
+
+
+---
+
+Реализуй минимум
+
+Начни с PropertyPanel.
+
+Потом добавь обработку сигнала splitter move:
+
+1. SplitterItemView читает реальные размеры
+
+
+2. передает их canvas
+
+
+3. canvas передает контроллеру
+
+
+4. контроллер вызывает set_splitter_sizes(...)
+
+
+5. JSON обновляется
+
+
+
+
+---
+
+18. Подключи drop объекта в конкретную панель
+
+Это ключевой сценарий.
+
+
+---
+
+Логика
+
+Если курсор попал в QSplitter, настоящий parent_id должен быть:
+
+не splitter_id
+
+а pane_id, в которую попал drop
+
+
+
+---
+
+В CanvasEditor.resolve_drop_parent(pos)
+
+Если под курсором QSplitter:
+
+1. найти SplitterItemView
+
+
+2. определить pane_id по позиции
+
+
+3. перевести позицию в локальные координаты соответствующей панели
+
+
+4. вернуть:
+
+target_parent_id = pane_id
+
+локальные x/y
+
+
+
+
+
+---
+
+19. Подключи PropertyPanel для QSplitter
+
+Для выбранного splitter показывай:
+
+Основное
+
+type
+
+name
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+orientation
+
+sizes
+
+
+
+---
+
+20. UI-редактор свойства sizes
+
+Сделай простой и практичный формат.
+
+Вариант:
+
+два числовых поля:
+
+size_1
+
+size_2
+
+
+
+или
+
+одно текстовое поле с форматом "200,400"
+
+
+Для устойчивости лучше:
+
+два числовых поля
+
+
+
+---
+
+21. Не показывай SplitterPane в палитре и как обычный объект свойств
+
+SplitterPane не должен:
+
+появляться в палитре
+
+рисоваться как отдельный объект формы
+
+выбираться как обычный объект
+
+
+Вся работа с ним идет только через QSplitter.
+
+
+---
+
+22. Доработай DocumentController для обновления canvas после splitter-операций
+
+После:
+
+set_splitter_orientation
+
+set_splitter_sizes
+
+
+делай:
+
+1. обновление документа
+
+
+2. flush_json_snapshot()
+
+
+3. canvas.refresh_view(splitter_id)
+или
+
+
+4. canvas.rebuild_all() как первый устойчивый вариант
+
+
+
+Для этой точки rebuild_all() допустим.
+
+
+---
+
+23. Подключи удаление QSplitter
+
+Сценарий должен работать полностью.
+
+Пользователь
+
+Выбирает QSplitter и удаляет.
+
+Документ
+
+Удаляет:
+
+сам QSplitter
+
+обе SplitterPane
+
+все дочерние объекты внутри панелей
+
+
+Canvas
+
+Удаляет всю ветку
+
+JSON
+
+Очищается от этой структуры полностью
+
+
+---
+
+24. JSON должен выглядеть так
+
+Добейся такой структуры:
+
+{
+  "meta": {
+    "format_version": 1,
+    "document_type": "pyside6_form"
+  },
+  "form": {
+    "id": "form_root",
+    "type": "FormRoot",
+    "name": "form",
+    "root_widget_type": "QWidget",
+    "width": 1200,
+    "height": 800,
+    "window_title": ""
+  },
+  "objects": [
+    {
+      "id": "splitter_1",
+      "type": "QSplitter",
+      "parent_id": "form_root",
+      "name": "splitter_1",
+      "order": 0,
+      "geometry": {
+        "x": 100,
+        "y": 80,
+        "width": 500,
+        "height": 220
+      },
+      "properties": {
+        "orientation": "horizontal",
+        "sizes": [250, 250]
+      }
+    },
+    {
+      "id": "splitter_pane_1",
+      "type": "SplitterPane",
+      "parent_id": "splitter_1",
+      "name": "splitter_pane_1",
+      "order": 0,
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 220
+      },
+      "properties": {}
+    },
+    {
+      "id": "splitter_pane_2",
+      "type": "SplitterPane",
+      "parent_id": "splitter_1",
+      "name": "splitter_pane_2",
+      "order": 1,
+      "geometry": {
+        "x": 250,
+        "y": 0,
+        "width": 250,
+        "height": 220
+      },
+      "properties": {}
+    },
+    {
+      "id": "push_button_1",
+      "type": "QPushButton",
+      "parent_id": "splitter_pane_1",
+      "name": "push_button_1",
+      "order": 0,
+      "geometry": {
+        "x": 20,
+        "y": 20,
+        "width": 120,
+        "height": 32
+      },
+      "properties": {
+        "text": "Button"
+      }
+    }
+  ]
+}
+
+Ключевое правило:
+
+объекты принадлежат SplitterPane, а не QSplitter
+
+
+
+---
+
+25. Проверь базовые сценарии
+
+Закрывай этап только если работают все сценарии.
+
+
+---
+
+Сценарий 1
+
+добавить QSplitter
+
+автоматически получить две панели
+
+
+
+---
+
+Сценарий 2
+
+поменять orientation на vertical
+
+
+
+---
+
+Сценарий 3
+
+изменить sizes через PropertyPanel
+
+
+
+---
+
+Сценарий 4
+
+добавить QPushButton в первую панель
+
+
+
+---
+
+Сценарий 5
+
+добавить QLabel во вторую панель
+
+
+
+---
+
+Сценарий 6
+
+убедиться, что объекты живут в разных SplitterPane
+
+
+
+---
+
+Сценарий 7
+
+двигать splitter как единый объект
+
+
+
+---
+
+Сценарий 8
+
+менять размер splitter как единого объекта
+
+
+
+---
+
+Сценарий 9
+
+удалить весь QSplitter
+
+убедиться, что удалилось все поддерево
+
+
+
+---
+
+Сценарий 10
+
+JSON snapshot после каждого завершенного действия корректный
+
+
+
+---
+
+26. Что пока не подключай
+
+Не делай пока:
+
+динамическое добавление третьей панели
+
+QWizard
+
+PythonExporter
+
+PythonImporter
+
+
+
+---
+
+27. Следующий шаг
+
+После устойчивого QSplitter переходи к:
+
+Девятая рабочая контрольная точка — QWizard
+
+Собирай в таком порядке:
+
+1. QWizard
+
+
+2. auto-create двух WizardPage
+
+
+3. страницы как внутренние сущности
+
+
+4. управление страницами через PropertyPanel
+
+
+5. выбор активной страницы
+
+
+6. drop в активную страницу
+
+
+7. add/remove/rename page
+
+
+8. корректный JSON для wizard-структуры
+
+
+
+После устойчивого QWizard переходи к полной доводке PropertyPanel и затем к PythonExporter.

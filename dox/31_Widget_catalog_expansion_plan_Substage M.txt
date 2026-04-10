@@ -1,0 +1,973 @@
+Подэтап M — QCalendarWidget
+
+Подключай QCalendarWidget сразу после полного закрытия QDateTimeEdit.
+Архитектуру не меняй. Повтори тот же pipeline, но для календарного leaf-виджета с нормализованной датой.
+
+
+---
+
+1. Цель подэтапа
+
+Добейся, чтобы QCalendarWidget проходил полный цикл:
+
+есть в палитре
+
+создается на форме
+
+выбирается
+
+двигается
+
+меняет размер
+
+редактируется через PropertyPanel
+
+сохраняется в JSON
+
+экспортируется в .py
+
+импортируется обратно
+
+проходит round-trip без потери geometry и свойств
+
+
+
+---
+
+2. Зафиксируй модель QCalendarWidget
+
+Считай QCalendarWidget обычным leaf-объектом.
+
+Тип
+
+type_name = "QCalendarWidget"
+
+
+Роль
+
+editor_kind = "leaf"
+
+
+Палитра
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+
+Поведение
+
+movable = true
+
+resizable = true
+
+deletable_directly = true
+
+
+Qt-класс
+
+qt_class_name = "QCalendarWidget"
+
+
+
+---
+
+3. Зафиксируй минимальный набор свойств
+
+Подключай только устойчивую базу.
+
+Обязательные свойства
+
+selected_date: str
+
+minimum_date: str
+
+maximum_date: str
+
+
+Формат хранения
+
+Храни даты только в формате:
+
+YYYY-MM-DD
+
+
+Примеры:
+
+2026-04-08
+
+2025-01-01
+
+
+
+---
+
+Значения по умолчанию
+
+Зафиксируй:
+
+selected_date = "2026-01-01"
+
+minimum_date = "1900-01-01"
+
+maximum_date = "2100-12-31"
+
+
+
+---
+
+Что пока не подключай
+
+Не добавляй на этом подэтапе:
+
+grid_visible
+
+navigation_bar_visible
+
+horizontal_header_format
+
+vertical_header_format
+
+first_day_of_week
+
+date_edit_enabled
+
+date_edit_accept_delay
+
+
+Сначала закрой устойчивую базу.
+
+
+---
+
+4. Добавь QCalendarWidget в WidgetRegistry
+
+В registry/builtins.py внеси полное определение типа.
+
+Зафиксируй
+
+type_name = "QCalendarWidget"
+
+display_name = "Calendar Widget"
+
+category = "Date and Time"
+
+editor_kind = "leaf"
+
+palette_visible = true
+
+palette_group = "Date and Time"
+
+creatable_by_user = true
+
+name_prefix = "calendar_widget"
+
+
+default_size
+
+Возьми:
+
+width = 260
+
+height = 200
+
+
+
+---
+
+property_schema
+
+selected_date
+
+data_type = "date_string"
+
+required = true
+
+default = "2026-01-01"
+
+editor = "text"
+
+
+minimum_date
+
+data_type = "date_string"
+
+required = true
+
+default = "1900-01-01"
+
+editor = "text"
+
+
+maximum_date
+
+data_type = "date_string"
+
+required = true
+
+default = "2100-12-31"
+
+editor = "text"
+
+
+Разрешенные родители
+
+Разреши:
+
+FormRoot
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Разрешенные дети
+
+allowed_child_types = None
+
+
+Geometry mode
+
+geometry_edit_mode = "full"
+
+
+
+---
+
+5. Проверь палитру
+
+После добавления в registry проверь:
+
+Calendar Widget появился в группе Date and Time
+
+drag source передает type_name = "QCalendarWidget"
+
+
+Не переходи дальше, пока палитра не работает стабильно.
+
+
+---
+
+6. Подключи создание QCalendarWidget в FormDocument
+
+Специальной логики создания не нужно.
+Используй обычный create_entity(...).
+
+Проверь, что при создании:
+
+берется default_size
+
+создаются дефолтные properties
+
+parent_id задается корректно
+
+order считается корректно
+
+документ помечается dirty
+
+
+
+---
+
+7. Используй уже существующий date-helper
+
+Для QCalendarWidget не делай новый формат даты.
+Используй тот же date-helper, что и для QDateEdit.
+
+Должны уже существовать:
+
+parse_date_string(value: str) -> date | None
+
+format_date_string(value: date) -> str
+
+is_valid_date_string(value: str) -> bool
+
+normalize_date_string(value: str, fallback: str) -> str
+
+
+
+---
+
+Правило
+
+Во всей системе дата хранится как строка:
+
+YYYY-MM-DD
+
+
+А в Qt преобразуется в:
+
+QDate
+
+
+
+---
+
+8. Добавь нормализацию свойств QCalendarWidget
+
+Сделай отдельный helper.
+
+Например:
+
+_normalize_calendar_widget_properties(properties: dict) -> dict
+
+
+Правило 1
+
+Если selected_date отсутствует или невалидна:
+
+ставь дефолтную дату
+
+
+Правило 2
+
+Если minimum_date отсутствует или невалидна:
+
+ставь "1900-01-01"
+
+
+Правило 3
+
+Если maximum_date отсутствует или невалидна:
+
+ставь "2100-12-31"
+
+
+Правило 4
+
+Если minimum_date > maximum_date:
+
+при установке minimum_date подними maximum_date = minimum_date
+
+при установке maximum_date опусти minimum_date = maximum_date
+
+
+Правило 5
+
+Если selected_date < minimum_date:
+
+ставь selected_date = minimum_date
+
+
+Правило 6
+
+Если selected_date > maximum_date:
+
+ставь selected_date = maximum_date
+
+
+
+---
+
+9. Добавь QCalendarWidget в WidgetFactory
+
+В factory/widget_factory.py добавь отдельную ветку.
+
+В create_widget(entity)
+
+Если entity.type == "QCalendarWidget":
+
+создавай QCalendarWidget
+
+
+В apply_properties(widget, entity)
+
+Применяй:
+
+1. setMinimumDate(...)
+
+
+2. setMaximumDate(...)
+
+
+3. setSelectedDate(...)
+
+
+
+
+---
+
+Порядок применения обязателен
+
+Применяй именно так:
+
+1. minimum
+
+
+2. maximum
+
+
+3. selected date
+
+
+
+
+---
+
+Почему это важно
+
+Сначала фиксируй диапазон, потом выбранную дату.
+Иначе виджет может скорректировать значение сам.
+
+
+---
+
+Преобразование строк в QDate
+
+Используй уже существующий helper:
+
+_to_qdate(value: str) -> QDate
+
+
+
+---
+
+10. Добавь refresh для QCalendarWidget
+
+Проверь, что refresh корректно переустанавливает:
+
+minimum_date
+
+maximum_date
+
+selected_date
+
+
+После изменения из PropertyPanel календарь на canvas должен обновляться без полного rebuild canvas.
+
+
+---
+
+11. Добавь QCalendarWidget в PropertyPanel
+
+Панель свойств должна показывать QCalendarWidget как обычный leaf-объект.
+
+Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Свойства
+
+selected_date
+
+minimum_date
+
+maximum_date
+
+
+Типы редакторов
+
+На первом проходе используй:
+
+selected_date → QLineEdit
+
+minimum_date → QLineEdit
+
+maximum_date → QLineEdit
+
+
+
+---
+
+Подсказка в UI
+
+Для этих полей добавь placeholder:
+
+YYYY-MM-DD
+
+
+Не делай пока popup-календарь внутри панели свойств. Сам виджет календаря уже есть на canvas.
+
+
+---
+
+12. Нормализуй flow изменений из PropertyPanel
+
+Изменения должны идти только через контроллер.
+
+Для selected_date
+
+update_entity_property(entity_id, "selected_date", new_value)
+
+
+Для minimum_date
+
+update_entity_property(entity_id, "minimum_date", new_value)
+
+
+Для maximum_date
+
+update_entity_property(entity_id, "maximum_date", new_value)
+
+
+После каждого изменения должен проходить единый pipeline:
+
+1. изменение в документе
+
+
+2. нормализация date-свойств
+
+
+3. flush_json_snapshot()
+
+
+4. canvas.refresh_view(entity_id)
+
+
+5. property_panel.rebuild()
+
+
+
+
+---
+
+13. Проверь работу CanvasEditor
+
+QCalendarWidget не требует специального item view.
+Он должен работать через обычный LeafItemView.
+
+Проверь, что он:
+
+создается на canvas
+
+выбирается
+
+двигается
+
+меняет размер
+
+не ломает overlay
+
+корректно обновляется после property changes
+
+
+
+---
+
+14. Проверь serializer
+
+QCalendarWidget не требует специальных JSON-веток.
+
+Убедись, что в JSON попадают свойства в таком виде:
+
+"properties": {
+  "selected_date": "2026-04-08",
+  "minimum_date": "2020-01-01",
+  "maximum_date": "2030-12-31"
+}
+
+Проверь:
+
+значения хранятся именно как строки
+
+формат единый
+
+JSON round-trip не меняет представление даты
+
+
+
+---
+
+15. Добавь экспорт QCalendarWidget в PythonExporter
+
+В exporter добавь отдельную ветку для QCalendarWidget.
+
+Генерируй
+
+1. создание объекта
+
+
+2. setObjectName(...)
+
+
+3. setGeometry(...)
+
+
+4. setMinimumDate(QDate(...))
+
+
+5. setMaximumDate(QDate(...))
+
+
+6. setSelectedDate(QDate(...))
+
+
+
+
+---
+
+Пример
+
+self.calendar_widget_1 = QCalendarWidget(self)
+self.calendar_widget_1.setObjectName("calendar_widget_1")
+self.calendar_widget_1.setGeometry(100, 80, 260, 200)
+self.calendar_widget_1.setMinimumDate(QDate(2020, 1, 1))
+self.calendar_widget_1.setMaximumDate(QDate(2030, 12, 31))
+self.calendar_widget_1.setSelectedDate(QDate(2026, 4, 8))
+
+
+---
+
+Импорты
+
+Если в документе есть QCalendarWidget, добавляй импорт:
+
+QCalendarWidget из QtWidgets
+
+QDate из QtCore
+
+
+
+---
+
+16. Используй общий helper генерации QDate(...) в exporter
+
+Не дублируй код.
+Используй уже существующий helper:
+
+_emit_qdate(date_string: str) -> str
+
+
+
+---
+
+17. Добавь импорт QCalendarWidget в PythonImporter
+
+На уровне AST-парсинга добавь поддержку:
+
+QCalendarWidget(parent)
+
+setMinimumDate(QDate(...))
+
+setMaximumDate(QDate(...))
+
+setSelectedDate(QDate(...))
+
+
+
+---
+
+Восстанавливай свойства
+
+minimum_date
+
+maximum_date
+
+selected_date
+
+
+
+---
+
+Parsing QDate(...)
+
+Используй уже существующий helper importer-а:
+
+_parse_qdate_call(node) -> str | None
+
+
+
+---
+
+18. Не поддерживай на этом этапе дополнительные календарные настройки
+
+Если importer встретил:
+
+setGridVisible(...)
+
+setNavigationBarVisible(...)
+
+setHorizontalHeaderFormat(...)
+
+setVerticalHeaderFormat(...)
+
+
+считай это unsupported case для текущей версии, если exporter сам этого не генерирует.
+
+
+---
+
+19. Проверь round-trip для QCalendarWidget
+
+Сделай обязательный цикл:
+
+1. создать QCalendarWidget в редакторе
+
+
+2. изменить:
+
+selected_date
+
+minimum_date
+
+maximum_date
+
+
+
+3. сохранить JSON
+
+
+4. загрузить JSON
+
+
+5. экспортировать .py
+
+
+6. импортировать .py
+
+
+7. сравнить документ
+
+
+
+
+---
+
+20. Подготовь тестовые сценарии для QCalendarWidget
+
+Закрывай подэтап только если проходят все.
+
+Сценарий 1 — создание
+
+создать QCalendarWidget
+
+убедиться, что он появляется на форме
+
+выбрать
+
+удалить
+
+
+Сценарий 2 — выбранная дата
+
+задать:
+
+selected_date = "2026-04-08"
+
+
+
+Проверить:
+
+canvas обновился
+
+JSON обновился
+
+календарь показывает выбранную дату корректно
+
+
+Сценарий 3 — диапазон дат
+
+задать:
+
+minimum_date = "2020-01-01"
+
+maximum_date = "2030-12-31"
+
+
+
+Проверить:
+
+диапазон применился
+
+JSON обновился
+
+
+Сценарий 4 — нормализация диапазона
+
+выставить minimum_date = "2035-01-01"
+
+потом maximum_date = "2030-01-01"
+
+
+Проверить:
+
+документ остался валидным
+
+minimum_date, maximum_date, selected_date согласованы
+
+
+Сценарий 5 — дата вне диапазона
+
+диапазон:
+
+minimum_date = "2025-01-01"
+
+maximum_date = "2025-12-31"
+
+
+потом задать:
+
+selected_date = "2026-04-08"
+
+
+
+Проверить:
+
+selected_date нормализована в допустимый диапазон
+
+документ валиден
+
+
+Сценарий 6 — JSON round-trip
+
+сохранить JSON
+
+загрузить JSON
+
+сравнить свойства
+
+
+Сценарий 7 — Python export/import round-trip
+
+экспортировать .py
+
+импортировать обратно
+
+сравнить свойства и geometry
+
+
+Сценарий 8 — вложенный контекст
+
+создать QCalendarWidget внутри:
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+
+
+Проверить, что parent-child структура не ломается
+
+
+---
+
+21. Проверь работу в special-container контекстах
+
+QCalendarWidget как leaf должен корректно жить внутри:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+ContainerContent
+
+SplitterPane
+
+
+Прогони хотя бы по одному сценарию для каждого семейства.
+
+
+---
+
+22. Зафиксируй критерий завершения QCalendarWidget
+
+Считай QCalendarWidget полностью подключенным только если одновременно верно:
+
+он есть в палитре
+
+он создается drag&drop
+
+он корректно отображается
+
+его можно выбрать
+
+его можно двигать и ресайзить
+
+его свойства редактируются через PropertyPanel
+
+свойства сохраняются в JSON
+
+свойства экспортируются в Python
+
+свойства импортируются обратно
+
+round-trip не теряет структуру и значения
+
+он стабильно работает внутри уже поддержанных контейнеров
+
+
+
+---
+
+23. Что делать сразу после закрытия QCalendarWidget
+
+После этого очередь даты и времени считай закрытой.
+
+Дальше переходи к следующей очереди в таком порядке:
+
+1. QFontComboBox
+
+
+2. QKeySequenceEdit
+
+
+3. QDial
+
+
+4. QLCDNumber
+
+
+5. QListView
+
+
+6. QTreeView
+
+
+7. QTableView
+
+
+
+
+---
+
+24. Следующий практический шаг
+
+Начинай следующую очередь с:
+
+Подэтап N — QFontComboBox
+
+Подключай по той же схеме.
+На первом проходе бери только свойства:
+
+current_font_family
+
+
+Не подключай пока фильтры шрифтов и сложные font-параметры.

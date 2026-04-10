@@ -1,0 +1,1294 @@
+Вторая рабочая контрольная точка
+
+Собери строго это состояние:
+
+палитра уже существует
+
+можно перетащить базовый объект на пустую форму
+
+объект визуально появляется на canvas
+
+объект можно выбрать
+
+его свойства показываются слева
+
+можно изменить text
+
+можно удалить объект
+
+можно двигать объект
+
+можно менять размер объекта
+
+после каждого завершенного действия обновляется JSON snapshot
+
+
+На этой точке не подключай специальные контейнеры.
+Закрой полностью только базовый сценарий для обычных leaf-объектов.
+
+
+---
+
+1. Цель второй контрольной точки
+
+Доведи систему до первого реально полезного конструктора.
+
+Пользователь должен уже мочь:
+
+1. создать пустую форму
+
+
+2. перетащить на нее кнопку
+
+
+3. выбрать кнопку
+
+
+4. поменять надпись
+
+
+5. передвинуть кнопку
+
+
+6. изменить размер
+
+
+7. удалить кнопку
+
+
+
+После этого можно переходить к контейнерам и сложным типам.
+
+
+---
+
+2. Типы, которые подключай на этой точке
+
+Не подключай сразу все.
+Начни только с этого набора:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+
+После их стабилизации добавь:
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Но сначала добейся полной стабильности на первых трех типах.
+
+
+---
+
+3. Подключи создание обычных сущностей в FormDocument
+
+Расширь document/form_document.py.
+
+Добавь или доведи до рабочего состояния:
+
+Методы
+
+create_entity(type_name, parent_id, geometry=None, properties=None, name=None) -> EntityModel
+
+delete_entity(entity_id) -> None
+
+delete_subtree(entity_id) -> None
+
+rename_entity(entity_id, new_name) -> None
+
+update_property(entity_id, property_name, value) -> None
+
+update_geometry(entity_id, x, y, width, height) -> None
+
+move_entity(entity_id, x, y) -> None
+
+resize_entity(entity_id, width, height) -> None
+
+
+
+---
+
+Поведение create_entity(...)
+
+Реализуй строго так:
+
+1. проверить, что type_name существует в registry
+
+
+2. проверить, что parent_id существует или равен form_root
+
+
+3. получить определение типа из registry
+
+
+4. сгенерировать id
+
+
+5. сгенерировать name, если не передано
+
+
+6. взять дефолтные properties
+
+
+7. взять дефолтный default_size
+
+
+8. если geometry не передано:
+
+x = 0
+
+y = 0
+
+width/height из реестра
+
+
+
+9. если geometry передано:
+
+нормализовать через utils.geometry
+
+
+
+10. вычислить order среди детей родителя
+
+
+11. создать EntityModel
+
+
+12. записать в entities_by_id
+
+
+13. пометить документ dirty
+
+
+14. вернуть созданную сущность
+
+
+
+
+---
+
+Поведение delete_entity(...)
+
+Для второй точки разреши удаление только обычных leaf-объектов.
+
+Логика:
+
+1. проверить существование объекта
+
+
+2. удалить его из entities_by_id
+
+
+3. пометить документ dirty
+
+
+
+Если у объекта вдруг есть дети:
+
+вызови delete_subtree(...)
+
+
+
+---
+
+Поведение delete_subtree(...)
+
+1. получить всех потомков
+
+
+2. удалить потомков снизу вверх
+
+
+3. удалить корневую сущность
+
+
+4. пометить документ dirty
+
+
+
+
+---
+
+4. Подними минимальный WidgetFactory
+
+В factory/widget_factory.py создай рабочую фабрику для первых трех типов.
+
+Поддержи типы
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+
+Добавь методы
+
+create_widget(entity: EntityModel) -> QWidget
+
+apply_properties(widget, entity) -> None
+
+apply_geometry(widget, entity) -> None
+
+refresh_widget(widget, entity) -> None
+
+
+
+---
+
+Реализация create_widget(...)
+
+Сделай dispatch по entity.type.
+
+Для QLabel
+
+создать QLabel
+
+применить text
+
+применить geometry
+
+
+Для QPushButton
+
+создать QPushButton
+
+применить text
+
+применить geometry
+
+
+Для QLineEdit
+
+создать QLineEdit
+
+применить text
+
+применить placeholder
+
+применить geometry
+
+
+
+---
+
+Реализация apply_properties(...)
+
+Поддержи только реально нужные свойства.
+
+QLabel
+
+text
+
+
+QPushButton
+
+text
+
+
+QLineEdit
+
+text
+
+placeholder
+
+
+
+---
+
+Реализация apply_geometry(...)
+
+Используй:
+
+widget.setGeometry(x, y, width, height)
+
+
+Не добавляй пока сложную логику.
+
+
+---
+
+5. Создай базовую визуальную оболочку объекта
+
+В canvas/views/base_item_view.py создай BaseFormItemView.
+
+
+---
+
+Поля
+
+entity_id
+
+entity_type
+
+inner_widget
+
+is_selected
+
+canvas
+
+_drag_active
+
+_resize_active
+
+
+
+---
+
+Методы
+
+bind_entity(entity, inner_widget)
+
+set_selected(value: bool)
+
+refresh_from_document(entity)
+
+get_geometry() -> dict
+
+mousePressEvent(event)
+
+mouseReleaseEvent(event)
+
+
+На второй точке пока не делай полноценный resize в базовом классе.
+Сначала подготовь оболочку.
+
+
+---
+
+Требование
+
+BaseFormItemView должен быть именно оболочкой вокруг inner_widget, а не заменой внутреннего виджета.
+
+
+---
+
+6. Создай LeafItemView
+
+В canvas/views/leaf_item_view.py создай LeafItemView, наследник BaseFormItemView.
+
+
+---
+
+Добавь
+
+выбор объекта по клику
+
+drag move
+
+базовое отображение выделения
+
+
+
+---
+
+Методы
+
+mousePressEvent(event)
+
+mouseMoveEvent(event)
+
+mouseReleaseEvent(event)
+
+paintEvent(event)
+
+
+
+---
+
+Поведение выбора
+
+При клике:
+
+1. передать entity_id в canvas
+
+
+2. canvas передает выбор в контроллер
+
+
+3. контроллер обновляет selected state
+
+
+4. canvas обновляет выделение всех item view
+
+
+
+
+---
+
+Поведение drag move
+
+На второй точке реализуй только перемещение внутри текущего родителя.
+
+Во время drag:
+
+двигай только визуальную оболочку
+
+
+После mouse release:
+
+вычисли новые x/y
+
+передай в canvas
+
+canvas передает в контроллер
+
+контроллер обновляет документ
+
+serializer обновляет snapshot
+
+
+
+---
+
+Поведение выделения
+
+В paintEvent рисуй простую рамку, если is_selected = true.
+
+Пока достаточно:
+
+1 прямоугольная рамка
+
+без красивых handles
+
+
+
+---
+
+7. Подключи папку canvas/views/ в проект
+
+Создай минимум:
+
+canvas/views/
+├── __init__.py
+├── base_item_view.py
+└── leaf_item_view.py
+
+ContainerItemView пока не подключай, если он мешает быстро закрыть точку.
+
+
+---
+
+8. Расширь CanvasEditor
+
+В canvas/canvas_editor.py сделай рабочий визуальный слой.
+
+
+---
+
+Поля
+
+controller
+
+widget_factory
+
+document
+
+item_views_by_id: dict[str, BaseFormItemView]
+
+selected_entity_id
+
+
+
+---
+
+Методы
+
+bind_document(document)
+
+clear_canvas()
+
+rebuild_all()
+
+add_view_for_entity(entity_id)
+
+remove_view_for_entity(entity_id)
+
+refresh_view(entity_id)
+
+select_entity(entity_id | None)
+
+clear_selection()
+
+handle_item_clicked(entity_id)
+
+handle_item_move_finished(entity_id, x, y)
+
+
+
+---
+
+Реализация rebuild_all()
+
+1. очистить canvas
+
+
+2. взять все root-объекты:
+
+document.get_root_entities()
+
+
+
+3. для каждого создать view через add_view_for_entity(...)
+
+
+
+На второй точке root-объекты — только leaf-объекты на FormRoot.
+
+
+---
+
+Реализация add_view_for_entity(...)
+
+1. получить сущность из документа
+
+
+2. создать inner_widget через WidgetFactory
+
+
+3. создать LeafItemView
+
+
+4. привязать сущность и widget
+
+
+5. добавить на canvas
+
+
+6. сохранить в item_views_by_id
+
+
+
+
+---
+
+Реализация refresh_view(...)
+
+1. взять сущность
+
+
+2. взять view
+
+
+3. вызвать view.refresh_from_document(entity)
+
+
+4. через factory обновить widget
+
+
+
+
+---
+
+Реализация select_entity(...)
+
+1. сохранить selected_entity_id
+
+
+2. пройтись по всем view
+
+
+3. у выбранного set_selected(True)
+
+
+4. у остальных set_selected(False)
+
+
+
+
+---
+
+9. Свяжи CanvasEditor и DocumentController
+
+В контроллер добавь события или прямые вызовы для базовой синхронизации.
+
+На второй точке можно без сложной сигнальной шины.
+
+Сделай прямую координацию:
+
+В DocumentController
+
+добавь ссылки:
+
+main_window
+
+canvas_editor при необходимости
+
+property_panel
+
+
+
+---
+
+Добавь методы
+
+bind_main_window(main_window)
+
+bind_canvas(canvas)
+
+notify_selection_changed()
+
+notify_entity_changed(entity_id)
+
+notify_entity_added(entity_id)
+
+notify_entity_removed(entity_id)
+
+
+
+---
+
+Поведение
+
+После действий контроллер должен сам вызывать:
+
+обновление панели свойств
+
+обновление canvas
+
+
+На второй точке этого достаточно.
+
+
+---
+
+10. Подключи PropertyPanel к выбранной сущности
+
+Расширь ui/properties/property_panel.py.
+
+
+---
+
+Поддержи два режима
+
+Режим формы
+
+Если selected_entity_id is None:
+
+показывай свойства FormRoot
+
+
+Режим объекта
+
+Если объект выбран:
+
+показывай свойства выбранной сущности
+
+
+
+---
+
+Для QLabel
+
+Показывай:
+
+type read-only
+
+name
+
+x
+
+y
+
+width
+
+height
+
+text
+
+
+
+---
+
+Для QPushButton
+
+Показывай:
+
+type
+
+name
+
+x
+
+y
+
+width
+
+height
+
+text
+
+
+
+---
+
+Для QLineEdit
+
+Показывай:
+
+type
+
+name
+
+x
+
+y
+
+width
+
+height
+
+text
+
+placeholder
+
+
+
+---
+
+11. Сделай коммит изменений из PropertyPanel
+
+Добавь в PropertyPanel обработку изменения полей.
+
+
+---
+
+Поддержи методы
+
+apply_name_change(new_name)
+
+apply_geometry_change(x, y, width, height)
+
+apply_property_change(property_name, value)
+
+
+
+---
+
+Поток
+
+1. пользователь меняет поле
+
+
+2. PropertyPanel вызывает метод контроллера
+
+
+3. контроллер меняет документ
+
+
+4. контроллер обновляет canvas
+
+
+5. контроллер обновляет JSON snapshot
+
+
+
+
+---
+
+В контроллер добавь
+
+rename_entity(entity_id, new_name)
+
+update_entity_property(entity_id, property_name, value)
+
+update_entity_geometry(entity_id, x, y, width, height)
+
+
+После каждого метода:
+
+flush_json_snapshot()
+
+обнови canvas
+
+обнови property panel
+
+
+
+---
+
+12. Подними drag source в палитре
+
+В ui/palette/palette_panel.py сделай реальный drag start.
+
+Передавай в mime data:
+
+type_name
+
+
+Не передавай туда geometry, parent или свойства.
+
+
+---
+
+13. Подними drop target на CanvasEditor
+
+На второй точке поддержи только drop на FormRoot.
+
+
+---
+
+Добавь в CanvasEditor
+
+dragEnterEvent(event)
+
+dragMoveEvent(event)
+
+dropEvent(event)
+
+
+
+---
+
+Логика drop
+
+1. прочитать type_name
+
+
+2. определить позицию drop
+
+
+3. перевести ее в локальные координаты FormRoot
+
+
+4. вызвать контроллер
+
+
+
+
+---
+
+В контроллер добавь
+
+create_entity_from_drop(type_name, x, y)
+
+
+
+---
+
+Реализация create_entity_from_drop(...)
+
+1. взять дефолтный размер из registry
+
+
+2. собрать geometry:
+
+x
+
+y
+
+width
+
+height
+
+
+
+3. вызвать document.create_entity(...) с:
+
+parent_id = form_root
+
+
+
+4. получить созданную сущность
+
+
+5. обновить JSON snapshot
+
+
+6. сообщить canvas добавить view
+
+
+7. выбрать созданный объект
+
+
+8. показать его свойства в панели
+
+
+
+
+---
+
+14. Подними удаление объекта
+
+В MainEditorWindow подключи кнопку удаления к контроллеру.
+
+В контроллере реализуй:
+
+delete_selected_entity()
+
+
+
+---
+
+Логика
+
+1. взять selected_entity_id
+
+
+2. если его нет — ничего не делать
+
+
+3. удалить сущность из документа
+
+
+4. обновить JSON snapshot
+
+
+5. удалить view из canvas
+
+
+6. очистить выбор
+
+
+7. вернуть PropertyPanel в режим формы
+
+
+
+
+---
+
+15. Подними move объекта
+
+В LeafItemView доведи drag сценарий до рабочего состояния.
+
+
+---
+
+Во время drag
+
+двигай оболочку визуально
+
+не меняй документ
+
+
+
+---
+
+При mouse release
+
+1. вычисли новые x/y
+
+
+2. передай в canvas:
+
+entity_id
+
+x
+
+y
+
+
+
+
+
+---
+
+В CanvasEditor
+
+передай это в контроллер:
+
+move_entity(entity_id, x, y)
+
+
+
+---
+
+В контроллере
+
+1. вызвать document.move_entity(...)
+
+
+2. обновить JSON snapshot
+
+
+3. refresh view
+
+
+4. обновить PropertyPanel
+
+
+
+
+---
+
+16. Подними resize объекта
+
+На второй точке не делай сложную систему всех восьми handles.
+Сделай одну рабочую минимальную схему.
+
+
+---
+
+Минимальный вариант
+
+Добавь правый нижний resize-handle.
+
+
+---
+
+В LeafItemView
+
+добавь:
+
+определение клика по resize-зоне
+
+отдельный режим resize
+
+визуальное изменение размера
+
+
+
+---
+
+При завершении resize
+
+Передай в canvas:
+
+entity_id
+
+width
+
+height
+
+
+
+---
+
+В контроллере
+
+реализуй:
+
+resize_entity(entity_id, width, height)
+
+
+После этого:
+
+документ обновляется
+
+JSON обновляется
+
+PropertyPanel обновляется
+
+
+
+---
+
+17. Обновляй JSON после завершенных действий
+
+На второй точке делай flush_json_snapshot() после:
+
+создания объекта
+
+удаления объекта
+
+move завершен
+
+resize завершен
+
+изменение свойства
+
+изменение имени
+
+изменение геометрии
+
+
+Не обновляй JSON в каждом mouseMoveEvent.
+
+
+---
+
+18. Поддержи QLabel, QPushButton, QLineEdit полностью
+
+До перехода дальше эти три типа должны быть закрыты полностью.
+
+Для каждого должно работать:
+
+создать из палитры
+
+отобразить
+
+выбрать
+
+изменить name
+
+изменить x/y/width/height
+
+изменить основные свойства
+
+удалить
+
+двигать
+
+менять размер
+
+записывать в JSON
+
+
+
+---
+
+19. JSON после создания объекта должен быть таким
+
+Пример для кнопки:
+
+{
+  "meta": {
+    "format_version": 1,
+    "document_type": "pyside6_form"
+  },
+  "form": {
+    "id": "form_root",
+    "type": "FormRoot",
+    "name": "form",
+    "root_widget_type": "QWidget",
+    "width": 1200,
+    "height": 800,
+    "window_title": ""
+  },
+  "objects": [
+    {
+      "id": "push_button_1",
+      "type": "QPushButton",
+      "parent_id": "form_root",
+      "name": "push_button_1",
+      "order": 0,
+      "geometry": {
+        "x": 100,
+        "y": 80,
+        "width": 120,
+        "height": 32
+      },
+      "properties": {
+        "text": "Button"
+      }
+    }
+  ]
+}
+
+Добейся именно такого уровня корректности.
+
+
+---
+
+20. Критерий завершения второй контрольной точки
+
+Закрывай этап только если одновременно работают все сценарии:
+
+Сценарий 1
+
+создать пустую форму
+
+
+Сценарий 2
+
+перетащить QPushButton на форму
+
+
+Сценарий 3
+
+выбрать кнопку
+
+
+Сценарий 4
+
+изменить текст кнопки через PropertyPanel
+
+
+Сценарий 5
+
+передвинуть кнопку мышью
+
+
+Сценарий 6
+
+изменить размер кнопки мышью
+
+
+Сценарий 7
+
+удалить кнопку
+
+
+Сценарий 8
+
+JSON snapshot после каждого завершенного действия корректный
+
+
+
+---
+
+21. Что не подключай до завершения этой точки
+
+Не делай пока:
+
+вложение в контейнеры
+
+ContainerItemView
+
+QTabWidget
+
+QScrollArea
+
+QSplitter
+
+QToolBox
+
+QStackedWidget
+
+QWizard
+
+PythonExporter
+
+PythonImporter
+
+
+
+---
+
+22. Следующий шаг после закрытия второй точки
+
+Переходи к третьей рабочей контрольной точке.
+
+Собирай в таком порядке:
+
+1. ContainerItemView
+
+
+2. drop в QWidget
+
+
+3. drop в QFrame
+
+
+4. drop в QGroupBox
+
+
+5. локальные координаты относительно контейнера
+
+
+6. выбор контейнера по пустой области
+
+
+7. удаление контейнера вместе с поддеревом
+
+
+8. move контейнера
+
+
+9. resize контейнера
+
+
+10. JSON для вложенной структуры
+
+
+
+И только после этого переходи к QTabWidget как первому special-container.

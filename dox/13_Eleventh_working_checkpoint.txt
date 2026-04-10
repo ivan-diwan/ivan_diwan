@@ -1,0 +1,1418 @@
+Одиннадцатая рабочая контрольная точка
+
+Собери строго это состояние:
+
+работает PythonExporter
+
+экспорт строится только из FormDocument
+
+формируется стабильный .py файл
+
+экспортируются:
+
+FormRoot
+
+leaf-объекты
+
+обычные контейнеры
+
+QTabWidget
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+QWizard
+
+
+структура parent-child в Python соответствует документу
+
+свойства объектов в Python соответствуют properties
+
+geometry в Python соответствует geometry
+
+внутренние сущности (TabPage, ContainerContent, StackPage, ToolPage, SplitterPane, WizardPage) не теряются, а корректно преобразуются в реальную PySide6-структуру
+
+один и тот же документ при повторном экспорте дает предсказуемый и стабильный результат
+
+
+Не переходи к PythonImporter, пока экспорт не станет устойчивым.
+
+
+---
+
+1. Цель одиннадцатой контрольной точки
+
+Закрой полный экспорт формы в Python.
+
+Пользователь должен мочь:
+
+1. собрать форму в конструкторе
+
+
+2. нажать Сохранить
+
+
+3. получить .py файл
+
+
+4. запустить этот .py файл
+
+
+5. увидеть ту же форму, что собрана в редакторе
+
+
+
+
+---
+
+2. Зафиксируй формат экспортируемого Python
+
+Не генерируй хаотичный код.
+Сразу зафиксируй единый шаблон.
+
+
+---
+
+Экспортируй в виде одного класса формы
+
+Сделай базовый формат:
+
+класс формы
+
+метод построения UI
+
+создание root widget
+
+создание всех дочерних объектов
+
+применение geometry
+
+применение properties
+
+
+
+---
+
+Базовый шаблон структуры файла
+
+Держи такой каркас:
+
+from PySide6.QtWidgets import ...
+from PySide6.QtCore import Qt
+
+class GeneratedForm:
+    def setup_ui(self, root):
+        ...
+
+или
+
+class GeneratedWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        ...
+
+Для первой устойчивой версии используй второй вариант.
+
+
+---
+
+3. Выбери единый экспортный стиль
+
+Зафиксируй один стиль и не смешивай подходы.
+
+Используй:
+
+Для FormRoot.root_widget_type == "QWidget"
+
+генерируй:
+
+class GeneratedWidget(QWidget): ...
+
+
+Для FormRoot.root_widget_type == "QDialog"
+
+генерируй:
+
+class GeneratedDialog(QDialog): ...
+
+
+
+---
+
+4. Сразу определи состав PythonExporter
+
+Создай файл:
+
+conversion/exporter.py
+
+Создай класс:
+
+PythonExporter
+
+
+
+---
+
+Основные методы
+
+export(document: FormDocument) -> str
+
+export_to_file(document: FormDocument, path: str) -> None
+
+_build_imports(document) -> str
+
+_build_class_header(document) -> str
+
+_build_setup_method(document) -> str
+
+_emit_entity(entity_id, parent_ref) -> list[str]
+
+_emit_geometry(entity, ref_name) -> list[str]
+
+_emit_properties(entity, ref_name) -> list[str]
+
+
+
+---
+
+5. Построй exporter по фазам
+
+Не пытайся сразу экспортировать все.
+
+Собирай по фазам.
+
+
+---
+
+6. Фаза 1 — экспорт FormRoot
+
+Сначала сделай только root.
+
+
+---
+
+Экспортируй
+
+imports
+
+root class
+
+resize(width, height)
+
+setWindowTitle(...)
+
+
+
+---
+
+Для QWidget
+
+Генерируй:
+
+class GeneratedWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.setObjectName("form")
+        self.resize(1200, 800)
+        self.setWindowTitle("...")
+
+
+---
+
+Для QDialog
+
+Генерируй то же, но от QDialog.
+
+
+---
+
+7. Фаза 2 — экспорт leaf-объектов
+
+Сначала поддержи:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+
+---
+
+Для каждого объекта генерируй
+
+1. создание экземпляра
+
+
+2. передачу родителя
+
+
+3. setObjectName(name)
+
+
+4. setGeometry(...)
+
+
+5. применение свойств
+
+
+
+
+---
+
+Пример QPushButton
+
+self.push_button_1 = QPushButton(self)
+self.push_button_1.setObjectName("push_button_1")
+self.push_button_1.setGeometry(100, 80, 120, 32)
+self.push_button_1.setText("Button")
+
+
+---
+
+8. Фаза 3 — экспорт обычных контейнеров
+
+Поддержи:
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+
+---
+
+Для QWidget
+
+Генерируй как обычный child widget.
+
+
+---
+
+Для QFrame
+
+Дополнительно генерируй:
+
+setFrameShape(...)
+
+setFrameShadow(...)
+
+
+Сделай mapping строкового значения из документа в enum PySide6.
+
+
+---
+
+Для QGroupBox
+
+Генерируй:
+
+setTitle(...)
+
+setCheckable(...)
+
+setChecked(...)
+
+
+
+---
+
+9. Введи единый mapping имени сущности в Python reference
+
+Сделай helper в exporter:
+
+_make_ref_name(entity) -> str
+
+
+Используй entity.name как базу.
+
+
+---
+
+Правило
+
+Любой объект должен получать предсказуемую Python-ссылку.
+
+Пример:
+
+push_button_1
+
+group_box_1
+
+tab_widget_1
+
+
+Для root используй:
+
+self
+
+
+
+---
+
+10. Введи единый способ получения Python parent reference
+
+Сделай helper:
+
+_get_parent_ref(entity) -> str
+
+
+
+---
+
+Правило
+
+Если parent_id == form_root:
+
+parent ref = self
+
+
+Если родитель — обычный контейнер:
+
+parent ref = self.<parent_name>
+
+
+Если родитель — внутренняя сущность:
+
+parent ref определяется через special-container mapping, а не напрямую по parent_id
+
+
+Это ключевой момент exporter.
+
+
+---
+
+11. Не экспортируй внутренние сущности как отдельные пользовательские объекты
+
+Не создавай Python-объекты по принципу:
+
+“любой объект документа = отдельная пользовательская сущность формы”
+
+
+Для internal-типов делай специальное преобразование.
+
+
+---
+
+Internal-типы:
+
+TabPage
+
+ContainerContent
+
+StackPage
+
+ToolPage
+
+SplitterPane
+
+WizardPage
+
+
+Их нужно преобразовывать в структуру родительских special-container, а не выводить как обычные top-level widgets.
+
+
+---
+
+12. Экспорт QTabWidget
+
+Сделай отдельную ветку exporter для QTabWidget.
+
+
+---
+
+Алгоритм
+
+1. создать QTabWidget
+
+
+2. задать geometry
+
+
+3. задать tabs_closable
+
+
+4. найти все TabPage
+
+
+5. отсортировать по order
+
+
+6. для каждой TabPage:
+
+создать внутренний QWidget
+
+задать ему objectName
+
+добавить в QTabWidget через addTab(...)
+
+использовать title из TabPage.properties["title"]
+
+
+
+7. после создания вкладок выставить setCurrentIndex(...)
+
+
+8. экспортировать дочерние объекты каждой TabPage внутрь соответствующего внутреннего widget
+
+
+
+
+---
+
+Что нужно хранить внутри exporter
+
+Сделай внутренний mapping:
+
+tab_page_id -> python_ref_name_of_tab_widget_page
+
+
+Без этого не получится правильно экспортировать детей страниц.
+
+
+---
+
+Пример
+
+self.tab_widget_1 = QTabWidget(self)
+self.tab_widget_1.setObjectName("tab_widget_1")
+self.tab_widget_1.setGeometry(100, 80, 400, 240)
+
+self.tab_page_1 = QWidget()
+self.tab_page_1.setObjectName("tab_page_1")
+self.tab_widget_1.addTab(self.tab_page_1, "Tab 1")
+
+self.tab_page_2 = QWidget()
+self.tab_page_2.setObjectName("tab_page_2")
+self.tab_widget_1.addTab(self.tab_page_2, "Tab 2")
+
+self.tab_widget_1.setCurrentIndex(0)
+
+
+---
+
+13. Экспорт QScrollArea
+
+Сделай отдельную ветку exporter для QScrollArea.
+
+
+---
+
+Алгоритм
+
+1. создать QScrollArea
+
+
+2. задать geometry
+
+
+3. задать widgetResizable
+
+
+4. найти ContainerContent
+
+
+5. создать внутренний QWidget content widget
+
+
+6. вызвать setWidget(content_widget)
+
+
+7. экспортировать дочерние объекты ContainerContent внутрь content widget
+
+
+
+
+---
+
+Сохраняй mapping
+
+container_content_id -> python_ref_name_of_content_widget
+
+
+
+---
+
+Пример
+
+self.scroll_area_1 = QScrollArea(self)
+self.scroll_area_1.setObjectName("scroll_area_1")
+self.scroll_area_1.setGeometry(80, 60, 300, 200)
+self.scroll_area_1.setWidgetResizable(True)
+
+self.scroll_content_1 = QWidget()
+self.scroll_content_1.setObjectName("scroll_content_1")
+self.scroll_area_1.setWidget(self.scroll_content_1)
+
+
+---
+
+14. Экспорт QStackedWidget
+
+Сделай отдельную ветку exporter.
+
+
+---
+
+Алгоритм
+
+1. создать QStackedWidget
+
+
+2. задать geometry
+
+
+3. найти StackPage
+
+
+4. отсортировать по order
+
+
+5. для каждой страницы:
+
+создать внутренний QWidget
+
+добавить через addWidget(...)
+
+сохранить mapping stack_page_id -> page_widget_ref
+
+
+
+6. выставить setCurrentIndex(...)
+
+
+7. экспортировать детей каждой StackPage внутрь соответствующей страницы
+
+
+
+
+---
+
+Пример
+
+self.stacked_widget_1 = QStackedWidget(self)
+self.stacked_widget_1.setObjectName("stacked_widget_1")
+self.stacked_widget_1.setGeometry(120, 100, 400, 240)
+
+self.stack_page_1 = QWidget()
+self.stack_page_1.setObjectName("stack_page_1")
+self.stacked_widget_1.addWidget(self.stack_page_1)
+
+self.stack_page_2 = QWidget()
+self.stack_page_2.setObjectName("stack_page_2")
+self.stacked_widget_1.addWidget(self.stack_page_2)
+
+self.stacked_widget_1.setCurrentIndex(0)
+
+
+---
+
+15. Экспорт QToolBox
+
+Сделай отдельную ветку exporter.
+
+
+---
+
+Алгоритм
+
+1. создать QToolBox
+
+
+2. задать geometry
+
+
+3. найти ToolPage
+
+
+4. отсортировать по order
+
+
+5. для каждой секции:
+
+создать внутренний QWidget
+
+добавить через addItem(widget, title)
+
+сохранить mapping tool_page_id -> page_widget_ref
+
+
+
+6. выставить setCurrentIndex(...)
+
+
+7. экспортировать дочерние объекты каждой ToolPage внутрь соответствующей страницы
+
+
+
+
+---
+
+16. Экспорт QSplitter
+
+Сделай отдельную ветку exporter.
+
+
+---
+
+Алгоритм
+
+1. создать QSplitter
+
+
+2. задать geometry
+
+
+3. применить orientation
+
+
+4. найти SplitterPane
+
+
+5. отсортировать по order
+
+
+6. для каждой панели:
+
+создать внутренний QWidget
+
+добавить в splitter через addWidget(...)
+
+сохранить mapping splitter_pane_id -> pane_widget_ref
+
+
+
+7. применить setSizes(...)
+
+
+8. экспортировать дочерние объекты каждой панели внутрь соответствующего pane widget
+
+
+
+
+---
+
+Пример
+
+self.splitter_1 = QSplitter(self)
+self.splitter_1.setObjectName("splitter_1")
+self.splitter_1.setGeometry(100, 80, 500, 220)
+self.splitter_1.setOrientation(Qt.Horizontal)
+
+self.splitter_pane_1 = QWidget()
+self.splitter_pane_1.setObjectName("splitter_pane_1")
+self.splitter_1.addWidget(self.splitter_pane_1)
+
+self.splitter_pane_2 = QWidget()
+self.splitter_pane_2.setObjectName("splitter_pane_2")
+self.splitter_1.addWidget(self.splitter_pane_2)
+
+self.splitter_1.setSizes([250, 250])
+
+
+---
+
+17. Экспорт QWizard
+
+Сделай отдельную ветку exporter.
+
+
+---
+
+Алгоритм
+
+1. создать QWizard
+
+
+2. задать geometry
+
+
+3. задать windowTitle
+
+
+4. найти WizardPage
+
+
+5. отсортировать по order
+
+
+6. для каждой страницы:
+
+создать QWizardPage
+
+применить title
+
+применить subtitle
+
+добавить через addPage(...)
+
+сохранить mapping wizard_page_id -> page_widget_ref
+
+
+
+7. выставить активную страницу, если нужно
+
+
+8. экспортировать детей страницы внутрь соответствующего QWizardPage
+
+
+
+
+---
+
+Примечание
+
+Если реальный QWizard не дает простой прямой установки current page по индексу до показа окна в нужном месте, сначала добейся корректного добавления страниц и структуры.
+Потом аккуратно зафиксируй начальную активную страницу.
+
+
+---
+
+18. Сделай единый реестр используемых импортов
+
+Не вставляй импорты вручную хаотично.
+
+Сделай helper:
+
+_collect_required_imports(document) -> set[str]
+
+
+
+---
+
+Собирай импорты по типам, которые реально есть в документе
+
+Например:
+
+QWidget
+
+QDialog
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QFrame
+
+QGroupBox
+
+QTabWidget
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+QWizard
+
+QWizardPage
+
+
+И Qt, если есть QSplitter.
+
+
+---
+
+19. Раздели exporter на два прохода
+
+Не генерируй код хаотично в одном общем цикле.
+
+Сделай два прохода.
+
+
+---
+
+Проход 1
+
+Создание всех объектов и специальных внутренних страниц/областей
+
+
+---
+
+Проход 2
+
+Экспорт дочерних объектов в уже созданных родителях
+
+
+---
+
+Почему
+
+Так проще гарантировать, что на момент экспорта ребенка его parent ref уже существует.
+
+
+---
+
+20. Введи внутренний mapping exporter
+
+Храни внутри exporter:
+
+entity_id -> python_ref_name
+
+internal_entity_id -> internal_parent_ref_name
+
+
+
+---
+
+Это обязательно для:
+
+TabPage
+
+ContainerContent
+
+StackPage
+
+ToolPage
+
+SplitterPane
+
+WizardPage
+
+
+
+---
+
+21. Сделай единый helper применения geometry
+
+Сделай:
+
+_emit_geometry(entity, ref_name) -> list[str]
+
+
+
+---
+
+Правило
+
+Для всех обычных widgets:
+
+setGeometry(x, y, width, height)
+
+
+Для внутренних страниц:
+
+geometry обычно не нужно явно применять как к обычным объектам, если это child special-container и layout определяется контейнером.
+
+
+
+---
+
+Значит
+
+Не применяй setGeometry(...) к:
+
+TabPage
+
+StackPage
+
+ToolPage
+
+WizardPage
+
+SplitterPane
+
+ContainerContent
+
+
+если они создаются как внутренние child widgets специальных контейнеров и их размером управляет контейнер.
+
+
+---
+
+22. Сделай единый helper применения свойств
+
+Сделай:
+
+_emit_properties(entity, ref_name) -> list[str]
+
+
+
+---
+
+Поддержи на первом полном проходе
+
+QLabel
+
+setText
+
+
+QPushButton
+
+setText
+
+
+QLineEdit
+
+setText
+
+setPlaceholderText
+
+
+QCheckBox
+
+setText
+
+setChecked
+
+
+QRadioButton
+
+setText
+
+setChecked
+
+
+QComboBox
+
+addItem(...) / addItems(...)
+
+setCurrentIndex(...)
+
+setEditable(...)
+
+
+QFrame
+
+setFrameShape(...)
+
+setFrameShadow(...)
+
+
+QGroupBox
+
+setTitle(...)
+
+setCheckable(...)
+
+setChecked(...)
+
+
+QScrollArea
+
+setWidgetResizable(...)
+
+
+QTabWidget
+
+setTabsClosable(...)
+
+setCurrentIndex(...)
+
+
+QStackedWidget
+
+setCurrentIndex(...)
+
+
+QToolBox
+
+setCurrentIndex(...)
+
+
+QSplitter
+
+setOrientation(...)
+
+setSizes(...)
+
+
+QWizard
+
+setWindowTitle(...)
+
+
+QWizardPage
+
+setTitle(...)
+
+setSubTitle(...)
+
+
+
+---
+
+23. Сделай отдельный mapping строковых значений в enum PySide6
+
+Для exporter добавь helper:
+
+_map_frame_shape(value) -> str
+
+_map_frame_shadow(value) -> str
+
+_map_orientation(value) -> str
+
+
+
+---
+
+Например
+
+orientation = "horizontal"
+должно экспортироваться как:
+
+Qt.Horizontal
+
+
+
+---
+
+24. Сделай export_to_file(...)
+
+В PythonExporter реализуй:
+
+export_to_file(document, path)
+
+
+Логика:
+
+1. вызвать export(document)
+
+
+2. записать строку в файл UTF-8
+
+
+
+
+---
+
+25. Создай conversion/python_converter.py
+
+Сделай фасад.
+
+Создай класс:
+
+PythonConverter
+
+
+Пока внутри только:
+
+export_to_python(document, path)
+
+
+
+---
+
+Не добавляй пока importer
+
+Оставь это для следующего этапа.
+
+
+---
+
+26. Подключи Сохранить в DocumentController
+
+В controller/document_controller.py реализуй:
+
+save_python(path)
+
+
+Логика:
+
+1. взять active_document
+
+
+2. убедиться, что документ существует
+
+
+3. вызвать flush_json_snapshot()
+
+
+4. вызвать python_converter.export_to_python(document, path)
+
+
+
+
+---
+
+27. Подключи кнопку Сохранить в MainEditorWindow
+
+Сделай полный пользовательский сценарий:
+
+1. пользователь нажимает Сохранить
+
+
+2. выбирает путь
+
+
+3. контроллер экспортирует .py
+
+
+4. пользователь получает готовый файл
+
+
+
+
+---
+
+28. Добейся стабильности экспортируемого кода
+
+Один и тот же документ должен экспортироваться:
+
+в одном и том же порядке
+
+с одинаковыми именами переменных
+
+с одинаковой структурой
+
+
+
+---
+
+Для этого
+
+Всегда сортируй children по:
+
+order
+
+
+И не итериируй по dict без явной сортировки.
+
+
+---
+
+29. Добавь минимальный runnable footer в экспорт
+
+Чтобы пользователь мог сразу запускать файл, добавь:
+
+if __name__ == "__main__":
+    app = QApplication([])
+    window = GeneratedWidget()
+    window.show()
+    app.exec()
+
+Для QDialog:
+
+тоже допустимо показывать dialog через show() на первой версии
+
+или через exec(), если хочешь отдельную ветку
+
+
+Для первой устойчивой версии лучше:
+
+использовать show()
+
+
+
+---
+
+30. Проверь экспорт на отдельных уровнях сложности
+
+Закрывай этап только если работают все сценарии.
+
+
+---
+
+Сценарий 1
+
+Пустая форма:
+
+экспортируется
+
+запускается
+
+показывает окно нужного размера
+
+
+
+---
+
+Сценарий 2
+
+Форма с leaf-объектами:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Все объекты:
+
+на правильных местах
+
+с правильными текстами и свойствами
+
+
+
+---
+
+Сценарий 3
+
+Форма с обычными контейнерами:
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+дети внутри контейнеров
+
+
+Структура должна совпадать с редактором.
+
+
+---
+
+Сценарий 4
+
+Форма с QTabWidget
+
+вкладки создаются
+
+объекты оказываются в нужных вкладках
+
+активная вкладка выставляется корректно
+
+
+
+---
+
+Сценарий 5
+
+Форма с QScrollArea
+
+есть content widget
+
+объекты внутри content widget
+
+widgetResizable применяется
+
+
+
+---
+
+Сценарий 6
+
+Форма с QStackedWidget
+
+страницы создаются
+
+объекты в нужных страницах
+
+активная страница корректна
+
+
+
+---
+
+Сценарий 7
+
+Форма с QToolBox
+
+секции создаются
+
+объекты попадают в нужные секции
+
+активная секция корректна
+
+
+
+---
+
+Сценарий 8
+
+Форма с QSplitter
+
+orientation корректный
+
+sizes применяются
+
+объекты внутри нужных панелей
+
+
+
+---
+
+Сценарий 9
+
+Форма с QWizard
+
+страницы создаются
+
+title/subtitle применяются
+
+объекты внутри нужных страниц
+
+
+
+---
+
+Сценарий 10
+
+Сложная форма с несколькими уровнями вложенности экспортируется без потери структуры
+
+
+---
+
+31. Не подключай пока PythonImporter
+
+Не пытайся сразу читать обратно .py.
+Сначала добейся устойчивого экспорта.
+
+
+---
+
+32. Следующий шаг
+
+После устойчивого PythonExporter переходи к:
+
+Двенадцатая рабочая контрольная точка — стабилизация exporter и реальная проверка экспортированного кода
+
+Собирай в таком порядке:
+
+1. автоматическая проверка на синтаксическую валидность .py
+
+
+2. прогон экспортированных форм на тестовых сценариях
+
+
+3. исправление нестабильных мест special-container экспорта
+
+
+4. выравнивание порядка генерации кода
+
+
+5. фиксация окончательного шаблона экспортируемого файла
+
+
+6. только после этого — PythonImporter

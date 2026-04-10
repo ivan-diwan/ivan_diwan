@@ -1,0 +1,1383 @@
+Дорожная карта первой сборки
+
+Собирай систему по микроэтапам. Не перескакивай через фундаментальные слои.
+
+
+---
+
+Этап 1. Подними каркас проекта
+
+Создай структуру:
+
+form_constructor/
+├── main.py
+├── app/
+│   ├── bootstrap.py
+│   └── application.py
+├── controller/
+│   ├── document_controller.py
+│   └── editor_state.py
+├── document/
+│   ├── form_document.py
+│   ├── models.py
+│   └── validator.py
+├── registry/
+│   ├── widget_registry.py
+│   ├── definitions.py
+│   └── builtins.py
+├── serialization/
+│   ├── form_serializer.py
+│   ├── parser.py
+│   └── writer.py
+├── conversion/
+│   ├── python_converter.py
+│   ├── exporter.py
+│   └── importer.py
+├── factory/
+│   ├── widget_factory.py
+│   └── builders/
+├── canvas/
+│   ├── canvas_editor.py
+│   ├── drop_target_resolver.py
+│   └── views/
+├── ui/
+│   ├── main_editor/
+│   ├── palette/
+│   ├── properties/
+│   └── form_window/
+├── utils/
+│   ├── ids.py
+│   ├── naming.py
+│   ├── geometry.py
+│   └── paths.py
+└── resources/
+
+Сразу заложи __init__.py во все пакеты.
+
+
+---
+
+Этап 2. Подними минимальный запуск приложения
+
+Сделай:
+
+main.py
+
+app/application.py
+
+ui/main_editor/main_editor_window.py
+
+
+Добейся, чтобы приложение запускалось и открывало только левое главное окно.
+
+В главном окне сразу выведи:
+
+кнопку Создать
+
+кнопку Загрузить
+
+кнопку Сохранить
+
+пустую область палитры
+
+пустую область свойств
+
+кнопку Удалить объект
+
+
+На этом этапе не подключай документ, форму и canvas.
+
+
+---
+
+Этап 3. Собери модели документа
+
+В document/models.py создай:
+
+FormRootModel
+
+EntityModel
+
+
+Задай поля.
+
+FormRootModel
+
+id: str
+
+type: str
+
+name: str
+
+root_widget_type: str
+
+width: int
+
+height: int
+
+window_title: str
+
+
+EntityModel
+
+id: str
+
+type: str
+
+parent_id: str
+
+name: str
+
+order: int
+
+geometry: dict
+
+properties: dict
+
+
+В geometry зафиксируй:
+
+x
+
+y
+
+width
+
+height
+
+
+
+---
+
+Этап 4. Собери FormDocument
+
+В document/form_document.py реализуй класс FormDocument.
+
+Сразу поддержи:
+
+Чтение
+
+get_form_root()
+
+get_entity(entity_id)
+
+has_entity(entity_id)
+
+get_children(parent_id)
+
+get_descendants(parent_id)
+
+get_root_entities()
+
+
+Создание
+
+create_entity(...)
+
+
+Изменение
+
+rename_entity(...)
+
+update_property(...)
+
+update_properties(...)
+
+update_geometry(...)
+
+move_entity(...)
+
+resize_entity(...)
+
+reparent_entity(...)
+
+set_order(...)
+
+
+Удаление
+
+delete_entity(...)
+
+delete_subtree(...)
+
+
+Состояние
+
+is_dirty
+
+mark_dirty()
+
+clear_dirty()
+
+
+Храни сущности в памяти как:
+
+form_root
+
+entities_by_id: dict[str, EntityModel]
+
+
+Детей получай по parent_id. Не храни children внутри сущностей.
+
+
+---
+
+Этап 5. Собери генераторы id и имен
+
+В utils/ids.py сделай генератор уникальных id.
+
+Пример формата:
+
+obj_push_button_1
+
+group_box_1
+
+tab_page_2
+
+
+В utils/naming.py сделай генератор name на основе name_prefix.
+
+Пример:
+
+push_button_1
+
+label_1
+
+group_box_1
+
+
+Не смешивай id и name.
+
+
+---
+
+Этап 6. Подними WidgetRegistry
+
+В registry/definitions.py создай:
+
+PropertyDefinition
+
+WidgetTypeDefinition
+
+
+В registry/widget_registry.py создай WidgetRegistry.
+
+Сразу поддержи методы:
+
+register_type(definition)
+
+get_type(type_name)
+
+has_type(type_name)
+
+list_palette_types()
+
+list_palette_groups()
+
+get_default_size(type_name)
+
+get_default_properties(type_name)
+
+get_name_prefix(type_name)
+
+get_property_schema(type_name)
+
+can_parent(parent_type, child_type)
+
+get_allowed_children(type_name)
+
+get_special_actions(type_name)
+
+get_auto_create_children(type_name)
+
+
+
+---
+
+Этап 7. Заполни builtins.py
+
+В registry/builtins.py зафиксируй определения типов.
+
+Сначала внеси только базовое ядро:
+
+Leaf
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QTextEdit
+
+QPlainTextEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Обычные контейнеры
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Специальные контейнеры
+
+QTabWidget
+
+QScrollArea
+
+
+Внутренние сущности
+
+TabPage
+
+ContainerContent
+
+
+Пока не распыляйся на все типы сразу.
+
+Для каждого типа сразу определи:
+
+type_name
+
+display_name
+
+category
+
+editor_kind
+
+palette_visible
+
+palette_group
+
+creatable_by_user
+
+name_prefix
+
+default_size
+
+property_schema
+
+allowed_parent_types
+
+allowed_child_types
+
+special_actions
+
+auto_create_children
+
+qt_class_name
+
+geometry_edit_mode
+
+movable
+
+resizable
+
+deletable_directly
+
+
+
+---
+
+Этап 8. Подними валидацию документа
+
+В document/validator.py создай DocumentValidator.
+
+Сразу реализуй:
+
+validate_document(document)
+
+validate_entity(entity, registry)
+
+validate_parent_child(parent_type, child_type, registry)
+
+
+Проверяй:
+
+уникальность id
+
+существование parent_id
+
+валидность type
+
+валидность geometry
+
+допустимость parent-child
+
+обязательные поля
+
+
+После этого любой документ прогоняй через валидатор.
+
+
+---
+
+Этап 9. Подними JSON-сериализацию
+
+В serialization/writer.py реализуй перевод FormDocument -> dict.
+
+В serialization/parser.py реализуй перевод dict -> FormDocument.
+
+В serialization/form_serializer.py собери фасад:
+
+to_dict(document)
+
+from_dict(data)
+
+save_json(document, path)
+
+load_json(path)
+
+
+Сразу зафиксируй JSON-структуру:
+
+meta
+
+format_version
+
+document_type
+
+
+form
+
+id
+
+type
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+objects
+
+список сущностей по единому контракту
+
+
+Добейся, чтобы работал полный цикл:
+
+создать документ
+
+сохранить в JSON
+
+загрузить из JSON
+
+получить эквивалентный документ
+
+
+
+---
+
+Этап 10. Подними EditorState
+
+В controller/editor_state.py создай EditorState.
+
+Храни в нем:
+
+active_document
+
+active_form_window
+
+selected_entity_id
+
+current_json_path при необходимости
+
+current_python_path при необходимости
+
+
+Не храни это в FormDocument.
+
+
+---
+
+Этап 11. Подними DocumentController
+
+В controller/document_controller.py реализуй DocumentController.
+
+Сразу сделай:
+
+Документ
+
+new_document()
+
+load_document_from_json(path)
+
+close_document()
+
+
+Выбор
+
+select_entity(entity_id)
+
+clear_selection()
+
+
+Изменение
+
+rename_entity(...)
+
+update_entity_property(...)
+
+update_entity_geometry(...)
+
+delete_entity(entity_id)
+
+delete_selected_entity()
+
+
+Сериализация
+
+flush_json_snapshot()
+
+
+Контроллер сделай центральной точкой всех действий.
+Ни один UI-модуль не должен менять документ напрямую.
+
+
+---
+
+Этап 12. Подними палитру
+
+В ui/palette/palette_panel.py создай PalettePanel.
+
+Сразу делай палитру из WidgetRegistry, а не вручную.
+
+Показывай только типы, где:
+
+palette_visible = true
+
+
+Группируй по:
+
+palette_group
+
+
+Поддержи drag start с передачей:
+
+type_name
+
+
+Пока не реализуй drop. Только drag source.
+
+
+---
+
+Этап 13. Подними панель свойств в минимальном виде
+
+В ui/properties/property_panel.py реализуй PropertyPanel.
+
+На первом проходе поддержи два режима:
+
+Если объект не выбран
+
+Показывай свойства формы:
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+Если выбран обычный объект
+
+Показывай:
+
+type read-only
+
+name
+
+parent read-only
+
+x
+
+y
+
+width
+
+height
+
+типозависимые свойства
+
+
+Сначала сделай только редакторы:
+
+text field
+
+number field
+
+checkbox
+
+
+Пока не делай спец-редакторы для вкладок и списков строк.
+
+
+---
+
+Этап 14. Подними FormWindow
+
+В ui/form_window/form_window.py создай FormWindow.
+
+Сделай отдельное окно, в которое потом будет встроен canvas.
+
+Пока на этом этапе достаточно:
+
+пустого QWidget как центральной области
+
+привязки к контроллеру
+
+корректного открытия и закрытия
+
+
+
+---
+
+Этап 15. Подними CanvasEditor в базовом виде
+
+В canvas/canvas_editor.py создай CanvasEditor.
+
+Сначала поддержи только:
+
+привязку к FormDocument
+
+отображение пустой формы
+
+клик по пустому месту
+
+связь с DocumentController
+
+
+Пока не строй объекты.
+Добейся, чтобы после Создать открывалось FormWindow с пустой формой нужного размера.
+
+
+---
+
+Этап 16. Свяжи Создать с открытием формы
+
+Сделай полный сценарий:
+
+1. нажал Создать
+
+
+2. контроллер создал новый документ
+
+
+3. serializer подготовил JSON snapshot
+
+
+4. открылось FormWindow
+
+
+5. canvas получил документ
+
+
+6. панель свойств показывает свойства формы
+
+
+
+На этом этапе уже должна жить первая связанная версия системы.
+
+
+---
+
+Этап 17. Подними WidgetFactory
+
+В factory/widget_factory.py реализуй WidgetFactory.
+
+Сначала поддержи только базовые типы:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QTextEdit
+
+QPlainTextEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Поддержи методы:
+
+create_widget(entity)
+
+apply_properties(widget, entity)
+
+apply_geometry(widget, entity)
+
+
+Не лезь пока в special-container типы.
+
+
+---
+
+Этап 18. Подними BaseFormItemView
+
+В canvas/views/base_item_view.py создай BaseFormItemView.
+
+Сразу заложи:
+
+entity_id
+
+inner_widget
+
+is_selected
+
+set_selected(value)
+
+refresh_from_document(entity)
+
+
+Пока сделай без drag и resize.
+
+
+---
+
+Этап 19. Подними LeafItemView и ContainerItemView
+
+Сделай два базовых подкласса:
+
+LeafItemView
+
+ContainerItemView
+
+
+На первом шаге добейся только:
+
+корректного отображения
+
+выбора
+
+связи с entity_id
+
+
+
+---
+
+Этап 20. Подними создание объектов на canvas
+
+Теперь реализуй первый настоящий рабочий сценарий:
+
+drag type из палитры
+
+drop на FormRoot
+
+создание сущности в документе
+
+создание FormItemView
+
+отображение объекта на форме
+
+выбор созданного объекта
+
+показ его свойств слева
+
+
+Сначала поддержи только drop на FormRoot.
+
+Не делай пока вложение в контейнеры.
+
+
+---
+
+Этап 21. Подними выбор объекта
+
+Реализуй сценарий:
+
+клик по объекту
+
+объект выделяется
+
+свойство отображаются
+
+клик по пустому месту снимает выбор
+
+свойства формы показываются снова
+
+
+Сделай единый selected state через DocumentController.
+
+
+---
+
+Этап 22. Подними изменение свойств через панель
+
+Сделай полный поток:
+
+1. выбрать объект
+
+
+2. изменить text, name, x, y, width, height
+
+
+3. PropertyPanel отправляет команду в DocumentController
+
+
+4. DocumentController меняет FormDocument
+
+
+5. CanvasEditor обновляет view
+
+
+6. serializer обновляет JSON snapshot
+
+
+
+Добейся этого сначала на:
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+
+
+---
+
+Этап 23. Подними удаление объекта
+
+Сделай сценарий:
+
+выбрать объект
+
+нажать Del или кнопку удаления
+
+удалить объект из документа
+
+удалить view с canvas
+
+очистить выбор
+
+обновить JSON
+
+
+Сначала только для leaf-объектов.
+
+
+---
+
+Этап 24. Подними move объекта
+
+Реализуй:
+
+зажатие мыши на объекте
+
+визуальное перемещение
+
+фиксацию x/y по mouse release
+
+обновление документа
+
+обновление JSON
+
+
+Сначала без смены родителя.
+Только перемещение внутри текущего родителя.
+
+
+---
+
+Этап 25. Подними resize объекта
+
+Реализуй:
+
+selection overlay
+
+resize handles
+
+изменение размеров мышью
+
+фиксацию width/height в документе
+
+обновление JSON
+
+
+Сначала только на leaf-объектах.
+
+
+---
+
+Этап 26. Подними обычные контейнеры как реальные родительские области
+
+Теперь подключи вложенность в:
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Сделай:
+
+drop в контейнер
+
+локальные координаты относительно контейнера
+
+выбор контейнера по пустой области
+
+отображение детей внутри контейнера
+
+
+После этого система уже станет реально полезной.
+
+
+---
+
+Этап 27. Подними QTabWidget
+
+Подключай первым special-container.
+
+Сделай полностью:
+
+create_tab_widget(...)
+
+auto-create двух TabPage
+
+TabWidgetItemView
+
+визуальное отображение вкладок
+
+drop объекта в активную TabPage
+
+панель свойств для QTabWidget
+
+добавить вкладку
+
+удалить вкладку
+
+переименовать вкладку
+
+переключить активную вкладку
+
+
+Не переходи к другим special-container, пока вкладки не станут устойчивыми.
+
+
+---
+
+Этап 28. Подними QScrollArea
+
+Реализуй:
+
+create_scroll_area(...)
+
+auto-create ContainerContent
+
+ScrollAreaItemView
+
+drop объектов в ContainerContent
+
+скрытие внутренней сущности от пользователя
+
+property panel для QScrollArea
+
+
+
+---
+
+Этап 29. Подними QStackedWidget
+
+Реализуй:
+
+auto-create двух StackPage
+
+panel управления страницами
+
+выбор активной страницы
+
+добавление / удаление / переименование страниц
+
+drop в активную страницу
+
+
+
+---
+
+Этап 30. Подними QToolBox
+
+Реализуй по той же схеме, что и stacked / tabs:
+
+страницы
+
+активная секция
+
+add/remove/rename section
+
+drop в активную секцию
+
+
+
+---
+
+Этап 31. Подними QSplitter
+
+Реализуй только после устойчивой работы предыдущих special-container.
+
+Сделай:
+
+auto-create двух внутренних панелей
+
+property orientation
+
+property sizes
+
+drop в конкретную панель
+
+изменение размеров панелей
+
+
+Не делай сначала динамическое добавление панелей.
+Сначала зафиксируй splitter на двух областях.
+
+
+---
+
+Этап 32. Расширь покрытие leaf-типов
+
+Теперь подключай остальные типы:
+
+QSpinBox
+
+QDoubleSpinBox
+
+QDateEdit
+
+QTimeEdit
+
+QDateTimeEdit
+
+QSlider
+
+QListWidget
+
+QTreeWidget
+
+QTableWidget
+
+QTextBrowser
+
+QProgressBar
+
+QFontComboBox
+
+QKeySequenceEdit
+
+QCalendarWidget
+
+QListView
+
+QTreeView
+
+QTableView
+
+QLCDNumber
+
+QDial
+
+
+Подключай их через:
+
+registry
+
+factory
+
+property panel
+
+canvas item views
+
+
+
+---
+
+Этап 33. Доведи PropertyPanel до полной схемы
+
+Добавь:
+
+string list editor
+
+multiline editor
+
+enum/dropdown editor
+
+специальные секции для page-based контейнеров
+
+отдельные блоки для:
+
+вкладок
+
+страниц
+
+секций
+
+splitter-панелей
+
+
+
+
+---
+
+Этап 34. Доведи синхронизацию JSON
+
+Фиксируй промежуточный JSON после завершенных операций:
+
+drop
+
+move end
+
+resize end
+
+property apply
+
+add/remove page
+
+delete
+
+reorder
+
+
+Не сохраняй на каждый пиксель движения.
+
+Сделай единый путь через DocumentController -> FormSerializer.
+
+
+---
+
+Этап 35. Подними PythonExporter
+
+Сначала поддержи экспорт только:
+
+FormRoot как QWidget
+
+базовые leaf-объекты
+
+обычные контейнеры
+
+QTabWidget
+
+
+Потом расширяй на:
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+
+Не начинай с полного покрытия всех типов.
+
+
+---
+
+Этап 36. Подними PythonImporter
+
+Делай только после устойчивого экспорта.
+
+Сначала обеспечь импорт:
+
+QWidget root
+
+базовые leaf-объекты
+
+обычные контейнеры
+
+QTabWidget
+
+
+Потом расширяй дальше.
+
+
+---
+
+Этап 37. Доведи UX
+
+После архитектурной стабильности улучшай:
+
+подсветку target drop
+
+визуал selection
+
+читаемость панели свойств
+
+генерацию имен
+
+предупреждения об ошибках
+
+более удобное управление страницами
+
+восстановление состояния формы после загрузки
+
+
+
+---
+
+Контрольные точки
+
+Фиксируй результат не “по количеству файлов”, а по рабочим состояниям.
+
+
+---
+
+Контрольная точка 1
+
+После этапа 7:
+
+приложение запускается
+
+левое окно работает
+
+новая форма открывается как пустое окно
+
+
+
+---
+
+Контрольная точка 2
+
+После этапа 12:
+
+документ существует
+
+JSON существует
+
+можно создать новую форму и загрузить JSON
+
+
+
+---
+
+Контрольная точка 3
+
+После этапа 20:
+
+можно перетащить базовый объект на пустую форму
+
+
+
+---
+
+Контрольная точка 4
+
+После этапа 25:
+
+базовый объект можно создать, выбрать, двигать, ресайзить, удалить, изменить через свойства
+
+
+Это первая реально рабочая версия.
+
+
+---
+
+Контрольная точка 5
+
+После этапа 31:
+
+работают все основные контейнерные сценарии
+
+
+
+---
+
+Контрольная точка 6
+
+После этапа 35:
+
+форма экспортируется в рабочий .py
+
+
+
+---
+
+Жесткие ограничения по порядку
+
+Соблюдай их.
+
+
+---
+
+Не делай раньше времени:
+
+special-container до базового canvas
+
+exporter до устойчивого JSON
+
+importer до exporter
+
+splitter до tab/scroll/stacked
+
+шлифовку UX до базовой работоспособности
+
+многодокументность
+
+QMainWindow-уровень инфраструктуры
+
+
+
+---
+
+Следующий шаг
+
+Зафиксируй теперь первый конкретный пакет файлов для начала сборки.
+Стартуй только с этого набора:
+
+main.py
+app/bootstrap.py
+app/application.py
+controller/document_controller.py
+controller/editor_state.py
+document/models.py
+document/form_document.py
+document/validator.py
+registry/definitions.py
+registry/widget_registry.py
+registry/builtins.py
+serialization/form_serializer.py
+serialization/parser.py
+serialization/writer.py
+ui/main_editor/main_editor_window.py
+ui/palette/palette_panel.py
+ui/properties/property_panel.py
+ui/form_window/form_window.py
+canvas/canvas_editor.py
+factory/widget_factory.py
+utils/ids.py
+utils/naming.py
+utils/geometry.py
+
+После этого переходи к детализации первого пакета: какой класс в каком файле писать первым и какие минимальные методы нужны в каждом.

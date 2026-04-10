@@ -1,0 +1,1177 @@
+Вторая итерация — полностью раскрыть PropertyPanel по всем объектам
+
+Работай без пересборки архитектуры.
+Ничего не меняй в базовой модели документа, serializer, exporter/importer, canvas flow.
+
+
+---
+
+1. Цель
+
+Доведи PropertyPanel до полного покрытия всех уже поддержанных объектов и всех внутренних сущностей системы.
+
+Сделай единый принцип:
+
+общий блок для всех объектов
+
+типозависимый блок свойств
+
+специальные блоки для special-container
+
+internal-сущности редактируются только через родителя
+
+все изменения идут только через DocumentController
+
+
+
+---
+
+2. Не менять
+
+Не менять:
+
+FormDocument как источник истины
+
+JSON-формат
+
+special-container структуру
+
+create/move/resize/delete pipeline
+
+exporter/importer архитектуру
+
+
+
+---
+
+3. Общая структура PropertyPanel
+
+Для любого выбранного обычного объекта показывай блоки в одном порядке:
+
+Блок A — Основное
+
+type — read-only
+
+name
+
+parent — read-only
+
+
+Блок B — Геометрия
+
+x
+
+y
+
+width
+
+height
+
+
+Показывать только если geometry_edit_mode = full.
+
+Блок C — Свойства типа
+
+Показывать по schema объекта.
+
+Блок D — Специальный блок
+
+Только для:
+
+QTabWidget
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+QWizard
+
+
+
+---
+
+4. Internal-типы
+
+Не показывай internal-типы как самостоятельные выбранные объекты формы:
+
+TabPage
+
+ContainerContent
+
+StackPage
+
+ToolPage
+
+SplitterPane
+
+WizardPage
+
+
+Их редактирование делай только через родительские special-container блоки.
+
+
+---
+
+5. Общий mapping редакторов
+
+Зафиксируй единый mapping:
+
+text → QLineEdit
+
+multiline → QPlainTextEdit
+
+checkbox → QCheckBox
+
+dropdown → QComboBox
+
+integer → QSpinBox
+
+float → QDoubleSpinBox
+
+string_list → QPlainTextEdit, одна строка = один элемент
+
+readonly → QLineEdit read-only
+
+
+
+---
+
+6. Поведение apply
+
+Все изменения из PropertyPanel отправляй только через контроллер.
+
+Используй только:
+
+rename_entity(...)
+
+update_entity_property(...)
+
+update_entity_geometry(...)
+
+специальные методы контейнеров:
+
+add/remove/rename/set current page/tab/section
+
+splitter orientation/sizes
+
+
+
+После любого apply:
+
+1. обновить документ
+
+
+2. нормализовать свойства
+
+
+3. flush_json_snapshot()
+
+
+4. canvas.refresh_view(entity_id)
+или canvas.rebuild_all() для структурных изменений
+
+
+5. property_panel.rebuild()
+
+
+
+
+---
+
+7. Общий набор объектов для полного покрытия
+
+Закрой все эти типы:
+
+Root
+
+QWidget
+
+QDialog
+
+
+Leaf — базовые
+
+QLabel
+
+QPushButton
+
+QLineEdit
+
+QCheckBox
+
+QRadioButton
+
+QComboBox
+
+
+Leaf — числовые
+
+QSpinBox
+
+QDoubleSpinBox
+
+QSlider
+
+QProgressBar
+
+QDial
+
+QLCDNumber
+
+
+Leaf — текст
+
+QTextEdit
+
+QPlainTextEdit
+
+
+Leaf — data item-based
+
+QListWidget
+
+QTableWidget
+
+QTreeWidget
+
+
+Leaf — data model-based
+
+QListView
+
+QTreeView
+
+QTableView
+
+
+Leaf — date/time
+
+QDateEdit
+
+QTimeEdit
+
+QDateTimeEdit
+
+QCalendarWidget
+
+
+Leaf — input specialized
+
+QFontComboBox
+
+QKeySequenceEdit
+
+
+Обычные контейнеры
+
+QWidget
+
+QFrame
+
+QGroupBox
+
+
+Special-container
+
+QTabWidget
+
+QScrollArea
+
+QStackedWidget
+
+QToolBox
+
+QSplitter
+
+QWizard
+
+
+
+---
+
+8. Общие поля формы
+
+Когда ничего не выбрано, показывай свойства формы:
+
+name
+
+root_widget_type
+
+width
+
+height
+
+window_title
+
+
+
+---
+
+9. Полное покрытие свойств по типам
+
+Ниже — что именно показать в PropertyPanel.
+
+
+---
+
+QLabel
+
+text
+
+
+QPushButton
+
+text
+
+
+QLineEdit
+
+text
+
+placeholder
+
+
+QCheckBox
+
+text
+
+checked
+
+
+QRadioButton
+
+text
+
+checked
+
+
+QComboBox
+
+items
+
+current_index
+
+editable
+
+
+
+---
+
+QSpinBox
+
+value
+
+minimum
+
+maximum
+
+step
+
+prefix
+
+suffix
+
+
+QDoubleSpinBox
+
+value
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+prefix
+
+suffix
+
+
+QSlider
+
+orientation
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+QProgressBar
+
+value
+
+minimum
+
+maximum
+
+text_visible
+
+
+QDial
+
+value
+
+minimum
+
+maximum
+
+step
+
+
+QLCDNumber
+
+value
+
+digit_count
+
+
+
+---
+
+QTextEdit
+
+text
+
+placeholder
+
+read_only
+
+
+QPlainTextEdit
+
+text
+
+placeholder
+
+read_only
+
+
+
+---
+
+QListWidget
+
+items
+
+current_row
+
+
+QTableWidget
+
+row_count
+
+column_count
+
+horizontal_headers
+
+vertical_headers
+
+
+QTreeWidget
+
+column_count
+
+header_labels
+
+
+
+---
+
+QListView
+
+model_items
+
+
+QTreeView
+
+header_labels
+
+
+QTableView
+
+column_count
+
+header_labels
+
+
+
+---
+
+QDateEdit
+
+date
+
+minimum_date
+
+maximum_date
+
+
+QTimeEdit
+
+time
+
+minimum_time
+
+maximum_time
+
+
+QDateTimeEdit
+
+datetime
+
+minimum_datetime
+
+maximum_datetime
+
+
+QCalendarWidget
+
+selected_date
+
+minimum_date
+
+maximum_date
+
+
+
+---
+
+QFontComboBox
+
+current_font_family
+
+
+QKeySequenceEdit
+
+key_sequence
+
+
+
+---
+
+QWidget
+
+Дополнительных свойств нет.
+
+QFrame
+
+frame_shape
+
+frame_shadow
+
+
+QGroupBox
+
+title
+
+checkable
+
+checked
+
+
+
+---
+
+10. Special-container блоки
+
+Сделай единый UX-подход.
+
+
+---
+
+QTabWidget
+
+Основные свойства
+
+current_index
+
+tabs_closable
+
+
+Блок “Вкладки”
+
+Показывай:
+
+список вкладок
+
+Добавить
+
+Удалить
+
+Название вкладки
+
+Сделать активной
+
+
+Редактируй у TabPage:
+
+title
+
+
+
+---
+
+QScrollArea
+
+Основные свойства
+
+widget_resizable
+
+
+Ничего по ContainerContent отдельно не показывай.
+
+
+---
+
+QStackedWidget
+
+Основные свойства
+
+current_index
+
+
+Блок “Страницы”
+
+Показывай:
+
+список страниц
+
+Добавить
+
+Удалить
+
+Название страницы
+
+Сделать активной
+
+
+Редактируй у StackPage:
+
+title
+
+
+
+---
+
+QToolBox
+
+Основные свойства
+
+current_index
+
+
+Блок “Секции”
+
+Показывай:
+
+список секций
+
+Добавить
+
+Удалить
+
+Название секции
+
+Сделать активной
+
+
+Редактируй у ToolPage:
+
+title
+
+
+
+---
+
+QSplitter
+
+Основные свойства
+
+orientation
+
+sizes
+
+
+Блок “Панели”
+
+Только read-only информация:
+
+Pane 1
+
+Pane 2
+
+
+Ничего отдельно у SplitterPane не редактируй.
+
+Для sizes сделай два поля:
+
+size_1
+
+size_2
+
+
+
+---
+
+QWizard
+
+Основные свойства
+
+window_title
+
+current_index
+
+
+Блок “Страницы”
+
+Показывай:
+
+список страниц
+
+Добавить
+
+Удалить
+
+Title
+
+Subtitle
+
+Сделать активной
+
+
+Редактируй у WizardPage:
+
+title
+
+subtitle
+
+
+
+---
+
+11. Полный mapping редакторов по свойствам
+
+Сразу используй единый mapping.
+
+
+---
+
+text
+
+text
+
+placeholder
+
+prefix
+
+suffix
+
+title
+
+subtitle
+
+window_title
+
+current_font_family
+
+key_sequence
+
+date
+
+minimum_date
+
+maximum_date
+
+time
+
+minimum_time
+
+maximum_time
+
+datetime
+
+minimum_datetime
+
+maximum_datetime
+
+
+Редактор:
+
+QLineEdit
+
+
+
+---
+
+multiline
+
+text у QTextEdit
+
+text у QPlainTextEdit
+
+
+Редактор:
+
+QPlainTextEdit
+
+
+
+---
+
+checkbox
+
+checked
+
+checkable
+
+editable
+
+tabs_closable
+
+widget_resizable
+
+text_visible
+
+read_only
+
+
+Редактор:
+
+QCheckBox
+
+
+
+---
+
+dropdown
+
+root_widget_type
+
+orientation
+
+frame_shape
+
+frame_shadow
+
+
+Редактор:
+
+QComboBox
+
+
+
+---
+
+integer
+
+x
+
+y
+
+width
+
+height
+
+value
+
+minimum
+
+maximum
+
+step
+
+decimals
+
+digit_count
+
+row_count
+
+column_count
+
+current_index
+
+current_row
+
+size_1
+
+size_2
+
+
+Редактор:
+
+QSpinBox
+
+
+
+---
+
+float
+
+value у QDoubleSpinBox
+
+minimum у QDoubleSpinBox
+
+maximum у QDoubleSpinBox
+
+step у QDoubleSpinBox
+
+
+Редактор:
+
+QDoubleSpinBox
+
+
+
+---
+
+string_list
+
+items
+
+horizontal_headers
+
+vertical_headers
+
+header_labels
+
+model_items
+
+
+Редактор:
+
+QPlainTextEdit
+
+одна строка = один элемент
+
+
+
+---
+
+12. Нормализация по семействам
+
+Не размазывай правила по панели.
+Все нормализации держи в helpers по типам.
+
+
+---
+
+Числовые
+
+диапазон согласован
+
+значение в диапазоне
+
+step >= 1 или > 0 для float
+
+digit_count >= 1
+
+decimals >= 0
+
+
+Текстовые
+
+всегда str
+
+placeholder всегда str
+
+read_only → bool
+
+
+Списковые
+
+items/header_labels/... всегда list[str]
+
+индексы согласованы с длиной списка
+
+
+Табличные
+
+размеры таблицы >= 0
+
+длина заголовков не больше числа строк/столбцов
+
+
+Date/Time
+
+строки только в нормализованном формате
+
+min/max согласованы
+
+текущее значение внутри диапазона
+
+
+
+---
+
+13. Что сделать в коде
+
+Сделай это в таком порядке.
+
+
+---
+
+Шаг 1
+
+Приведи PropertyEditorFactory к полному покрытию редакторов:
+
+text
+
+multiline
+
+checkbox
+
+dropdown
+
+integer
+
+float
+
+string_list
+
+readonly
+
+
+
+---
+
+Шаг 2
+
+Приведи WidgetRegistry.property_schema у всех типов к полному состоянию.
+
+
+---
+
+Шаг 3
+
+Приведи PropertyPanel к сборке по schema из registry, а не по ручным веткам.
+
+Оставь ручные ветки только для:
+
+special-container блоков
+
+
+
+---
+
+Шаг 4
+
+Добавь специальные блоки:
+
+tabs
+
+pages
+
+sections
+
+splitter sizes
+
+wizard pages
+
+
+
+---
+
+Шаг 5
+
+Проверь rebuild панели после:
+
+property apply
+
+selection change
+
+structural change
+
+load/import
+
+
+
+---
+
+14. Правило компактности кода
+
+Не делай для каждого объекта отдельный hardcoded builder панели.
+
+Делай так:
+
+общий builder по schema
+
+отдельные методы только для special-container секций
+
+
+Оставь только такие специальные методы:
+
+build_tab_widget_section(...)
+
+build_scroll_area_section(...)
+
+build_stacked_section(...)
+
+build_toolbox_section(...)
+
+build_splitter_section(...)
+
+build_wizard_section(...)
+
+
+
+---
+
+15. Проверка завершения второй итерации
+
+Закрывай эту итерацию только если:
+
+Общая часть
+
+любой поддержанный объект показывает полную панель
+
+все поля отображаются правильным редактором
+
+apply идет только через контроллер
+
+JSON и canvas синхронизированы
+
+
+Special-container часть
+
+все internal-сущности редактируются только через родителя
+
+все специальные блоки работают
+
+rebuild после add/remove/rename/set current стабилен
+
+
+Полнота покрытия
+
+все объекты из текущего каталога имеют полный список свойств в панели
+
+после этого к PropertyPanel по этим объектам больше не возвращаться
+
+
+
+---
+
+16. После этого
+
+После закрытия этой итерации переходи не к панели свойств, а к углублению полезных объектов:
+
+1. QTableWidget — cell_values
+
+
+2. QTreeWidget — tree_items
+
+
+3. при необходимости QListWidget — дополнительные полезные свойства
+
+
+
+Это уже отдельная итерация.
