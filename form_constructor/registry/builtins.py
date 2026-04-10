@@ -487,7 +487,7 @@ def build_builtin_registry() -> WidgetRegistry:
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QTreeView",
-            description="РџСЂРµРґСЃС‚Р°РІР»РµРЅРёРµ РґРµСЂРµРІР° РЅР° РѕСЃРЅРѕРІРµ СѓРїСЂРѕС‰РµРЅРЅРѕР№ QStandardItemModel СЃ Р·Р°РіРѕР»РѕРІРєР°РјРё РєРѕР»РѕРЅРѕРє.",
+            description="Представление дерева на основе упрощенной QStandardItemModel с заголовками колонок.",
         )
     )
     registry.register(
@@ -726,7 +726,7 @@ def build_builtin_registry() -> WidgetRegistry:
             ],
             allowed_parent_types=common_leaf_parents,
             qt_class_name="QLCDNumber",
-            description="LCD-РёРЅРґРёРєР°С‚РѕСЂ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ С†РµР»РѕС‡РёСЃР»РµРЅРЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ СЃ С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Рј С‡РёСЃР»РѕРј СЂР°Р·СЂСЏРґРѕРІ.",
+            description="LCD-индикатор для отображения целочисленного значения с фиксированным числом разрядов.",
         )
     )
     registry.register(
