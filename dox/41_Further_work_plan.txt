@@ -1,0 +1,142 @@
+Further Work Plan
+
+Date: 2026-04-10
+Working branch: `codex/working-baseline`
+Starting test status: `205 passed, 119 subtests passed`
+
+
+1. Purpose
+
+The previous stage improved safety around editor workflows:
+
+- stronger direct regression coverage
+- earlier validation before file actions
+- immediate property parse feedback in the UI
+- better registry APIs for future catalog growth
+
+The next stage should build on that by improving product depth rather than
+only strengthening infrastructure.
+
+
+2. Main objective
+
+The main objective of the next stage is to expand supported widget behavior
+more confidently while keeping diagnostics and round-trip stability strong.
+
+This stage should turn the recent architectural cleanup and safety work into
+measurable product capability.
+
+
+3. Priority order
+
+Priority 1: Continue widget catalog deepening in controlled slices
+
+Why:
+- the codebase is now in a better state for safe catalog growth
+- the clearest user-visible progress will come from broadening or deepening widget support
+
+Primary targets:
+- `form_constructor/registry/builtins.py`
+- `form_constructor/factory/widget_factory.py`
+- `form_constructor/conversion/exporter.py`
+- `form_constructor/conversion/importer.py`
+- `form_constructor/document/property_normalizer.py`
+- `form_constructor/document/validator.py`
+
+Desired result:
+- each chosen widget slice is supported consistently across registry, runtime, import, export, normalize, and validate paths
+
+
+Priority 2: Improve canvas/editor interaction polish around special containers
+
+Why:
+- special containers are already supported, but they remain the most interaction-sensitive area
+- better UX here will reduce friction more than generic cosmetic work
+
+Primary targets:
+- `form_constructor/canvas/canvas_editor.py`
+- `form_constructor/canvas/views/`
+- `form_constructor/ui/properties/property_panel.py`
+- `form_constructor/ui/main_editor/main_editor_window.py`
+
+Desired result:
+- more predictable selection, rebuild, and editing behavior around tabs, splitter panes, scroll content, and wizard pages
+
+
+Priority 3: Clean up user-facing text quality in catalog and UI descriptions
+
+Why:
+- the project still contains mojibake and legacy text quality issues in built-in descriptions
+- now that the architecture is steadier, text cleanup will have lasting value
+
+Primary targets:
+- `form_constructor/registry/builtins.py`
+- `form_constructor/ui/palette/palette_panel.py`
+- `README.md`
+- selected files in `dox/`
+
+Desired result:
+- palette descriptions and supporting project texts become readable and trustworthy for daily use
+
+
+4. Recommended sequence
+
+1. Pick one controlled widget-support slice and complete it end-to-end.
+2. Add tests for that slice before moving to the next one.
+3. Improve special-container interaction polish where tests expose weak spots.
+4. Finish with user-facing text cleanup once behavior is stable.
+
+
+5. Recommended commit blocks
+
+- Commit block 1
+  Title idea:
+  - `Deepen supported widget behavior across runtime and conversion layers`
+
+- Commit block 2
+  Title idea:
+  - `Improve special container interaction flow`
+
+- Commit block 3
+  Title idea:
+  - `Clean up user-facing catalog descriptions`
+
+- Commit block 4
+  Title idea:
+  - `Document expanded support boundaries`
+
+
+6. High-risk areas
+
+- `form_constructor/conversion/exporter.py`
+  Risk:
+  - export determinism and round-trip stability are easy to disturb
+
+- `form_constructor/conversion/importer.py`
+  Risk:
+  - importer behavior is broad and subtle; diagnostics must stay good while support expands
+
+- `form_constructor/canvas/views/`
+  Risk:
+  - visual behavior can regress in ways that only show through interaction scenarios
+
+- `form_constructor/registry/builtins.py`
+  Risk:
+  - schema changes ripple through many layers at once
+
+
+7. Completion condition
+
+This next plan should be considered complete when:
+
+- at least one meaningful widget-support slice is deepened consistently across all layers
+- special-container interaction behavior is more predictable in the editor
+- user-facing catalog text quality is noticeably improved
+- the full suite still passes after the work
+
+
+8. Bottom line
+
+The architecture is no longer the main blocker.
+The next strongest return now comes from deeper product support,
+safer interaction behavior, and cleaner user-facing quality.

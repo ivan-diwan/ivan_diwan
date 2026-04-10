@@ -92,6 +92,9 @@ The current architecture cleanup stage is complete:
 - `PythonImporter` reuses the shared property normalizer for supported widget-state normalization
 - `WidgetFactory` is now flatter and grouped around clearer runtime-application helpers
 - `PropertyPanel` is leaner and delegates editor configuration to `PropertyEditorFactory`
+- editor save/export paths now validate the active document before file operations
+- property editor parse errors are surfaced immediately in the editor message log
+- `WidgetRegistry` exposes grouped palette helpers for safer future catalog expansion
 
 ## Architecture Boundaries
 

@@ -31,6 +31,7 @@ from form_constructor.ui.properties.property_editor_factory import (
 class PropertyPanel(QWidget):
     name_changed = Signal(str, str)
     property_changed = Signal(str, str, object)
+    validation_error = Signal(str)
     geometry_changed = Signal(str, int, int, int, int)
     form_root_changed = Signal(str, str, int, int, str)
     tab_add_requested = Signal(str)
@@ -711,7 +712,14 @@ class PropertyPanel(QWidget):
         widget = self._property_widgets.get(property_name)
         if widget is None:
             return
-        value = self._editor_factory.get_value(widget, prop)
+        try:
+            value = self._editor_factory.get_value(widget, prop)
+        except Exception as error:
+            self.validation_error.emit(
+                f"Invalid value for '{self._format_property_label(property_name)}': {error}"
+            )
+            self._set_property_widget_value(property_name, self._active_entity_property_value(property_name, prop))
+            return
         if property_name == "current_index":
             self._reset_special_selection_tracking()
             if (
@@ -733,6 +741,14 @@ class PropertyPanel(QWidget):
                 if self._active_definition is None
                 else self._geometry_edit_mode_for(self._active_definition.type_name)
             )
+
+    def _active_entity_property_value(self, property_name: str, prop: PropertyDefinition) -> object:
+        if self._active_document is None or self._active_entity_id is None:
+            return prop.default
+        entity = self._active_document.get_entity(self._active_entity_id)
+        if entity is None:
+            return prop.default
+        return entity.properties.get(property_name, prop.default)
 
     def _format_property_label(self, property_name: str) -> str:
         return property_name.replace("_", " ").title()

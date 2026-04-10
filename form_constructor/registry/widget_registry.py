@@ -29,8 +29,33 @@ class WidgetRegistry:
             if definition.palette_visible
         ]
 
+    def list_palette_types_by_group(self) -> dict[str, list[WidgetTypeDefinition]]:
+        grouped: dict[str, list[WidgetTypeDefinition]] = {}
+        for definition in self.list_palette_types():
+            grouped.setdefault(definition.palette_group, []).append(definition)
+        for group_name in grouped:
+            grouped[group_name] = sorted(
+                grouped[group_name],
+                key=lambda definition: definition.display_name,
+            )
+        return dict(sorted(grouped.items()))
+
     def list_palette_groups(self) -> list[str]:
-        return sorted({definition.palette_group for definition in self.list_palette_types()})
+        return list(self.list_palette_types_by_group())
+
+    def list_creatable_types(self) -> list[WidgetTypeDefinition]:
+        return [
+            definition
+            for definition in self._definitions.values()
+            if definition.creatable_by_user
+        ]
+
+    def list_types_by_editor_kind(self, editor_kind: str) -> list[WidgetTypeDefinition]:
+        return [
+            definition
+            for definition in self._definitions.values()
+            if definition.editor_kind == editor_kind
+        ]
 
     def get_default_size(self, type_name: str) -> tuple[int, int]:
         definition = self._require_definition(type_name)

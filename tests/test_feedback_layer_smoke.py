@@ -164,6 +164,48 @@ class GeneratedWidget(QWidget):
             self.assertIn(f"filename: {source_path}", message_log)
             self.assertIn("[ERROR]", message_log)
 
+    def test_save_and_export_are_blocked_early_when_active_document_is_invalid(self) -> None:
+        self.controller.new_document(width=800, height=600)
+        self._process_events()
+        self.controller.active_document.form_root.width = 0
+
+        with managed_test_paths(
+            "tests\\_tmp_feedback_invalid_save.json",
+            "tests\\_tmp_feedback_invalid_export.py",
+        ) as (json_path, py_path):
+            with patch(
+                "form_constructor.ui.main_editor.main_editor_window.QFileDialog.getSaveFileName",
+                side_effect=[(str(json_path), "JSON Files (*.json)"), (str(py_path), "Python Files (*.py)")],
+            ):
+                self.window._save_document()
+                self.window._export_python()
+
+            self._process_events()
+            message_log = self.window._message_log.toPlainText()
+            self.assertIn("Cannot save JSON", message_log)
+            self.assertIn("Cannot export Python", message_log)
+            self.assertIn("Form size must be positive", message_log)
+            self.assertFalse(json_path.exists())
+            self.assertFalse(py_path.exists())
+
+    def test_property_panel_reports_parse_errors_without_mutating_document(self) -> None:
+        self.controller.new_document(width=800, height=600)
+        self._process_events()
+        tree_widget = self.controller.create_entity_from_drop("QTreeWidget", 20, 20, "form_root")
+        self._process_events()
+
+        editor = self.window._property_panel._property_widgets["tree_items"]
+        previous_value = self.controller.active_document.get_entity(tree_widget.id).properties["tree_items"]
+        editor.setPlainText("{broken json")
+        self.window._property_panel._emit_schema_property_change("tree_items")
+        self._process_events()
+
+        message_log = self.window._message_log.toPlainText()
+        updated_value = self.controller.active_document.get_entity(tree_widget.id).properties["tree_items"]
+        self.assertIn("Invalid value for 'Tree Items'", message_log)
+        self.assertEqual(updated_value, previous_value)
+        self.assertEqual(editor.toPlainText().strip(), "[]")
+
     @classmethod
     def _process_events(cls) -> None:
         cls._app.processEvents()

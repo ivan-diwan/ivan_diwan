@@ -24,6 +24,7 @@ class PaletteTreeWidget(QTreeWidget):
 class PalettePanel(QWidget):
     def __init__(self, widget_registry: WidgetRegistry, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._widget_registry = widget_registry
         self._definitions_by_type = {
             definition.type_name: definition
             for definition in widget_registry.list_palette_types()
@@ -58,22 +59,18 @@ class PalettePanel(QWidget):
 
     def _populate_tree(self) -> None:
         groups: dict[str, QTreeWidgetItem] = {}
-        for definition in sorted(
-            self._definitions_by_type.values(),
-            key=lambda item: (item.palette_group, item.display_name),
-        ):
-            group_item = groups.get(definition.palette_group)
-            if group_item is None:
-                group_item = QTreeWidgetItem([definition.palette_group])
-                group_item.setFlags(
-                    group_item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled
-                )
-                self._tree.addTopLevelItem(group_item)
-                groups[definition.palette_group] = group_item
+        for group_name, definitions in self._widget_registry.list_palette_types_by_group().items():
+            group_item = QTreeWidgetItem([group_name])
+            group_item.setFlags(
+                group_item.flags() & ~Qt.ItemFlag.ItemIsDragEnabled
+            )
+            self._tree.addTopLevelItem(group_item)
+            groups[group_name] = group_item
 
-            child_item = QTreeWidgetItem([definition.display_name])
-            child_item.setData(0, Qt.ItemDataRole.UserRole, definition.type_name)
-            group_item.addChild(child_item)
+            for definition in definitions:
+                child_item = QTreeWidgetItem([definition.display_name])
+                child_item.setData(0, Qt.ItemDataRole.UserRole, definition.type_name)
+                group_item.addChild(child_item)
 
         for group_item in groups.values():
             group_item.setExpanded(True)

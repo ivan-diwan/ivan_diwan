@@ -102,6 +102,7 @@ class MainEditorWindow(QMainWindow):
         self._export_python_button.clicked.connect(self._export_python)
         self._load_button.clicked.connect(self._load_document)
         self._property_panel.name_changed.connect(self._controller.rename_entity)
+        self._property_panel.validation_error.connect(self._show_error_message)
         self._property_panel.property_changed.connect(self._controller.update_entity_property)
         self._property_panel.geometry_changed.connect(self._controller.update_entity_geometry)
         self._property_panel.form_root_changed.connect(self._handle_form_root_changed)
@@ -145,6 +146,8 @@ class MainEditorWindow(QMainWindow):
     def _save_document(self) -> None:
         if self._controller.active_document is None:
             return
+        if not self._validate_active_document_for_action("save JSON"):
+            return
         current_path = self._controller.editor_state.current_json_path or ""
         target_path = current_path
         if not target_path:
@@ -179,6 +182,8 @@ class MainEditorWindow(QMainWindow):
 
     def _export_python(self) -> None:
         if self._controller.active_document is None:
+            return
+        if not self._validate_active_document_for_action("export Python"):
             return
         current_path = self._controller.suggest_python_export_path()
         target_path, _ = QFileDialog.getSaveFileName(
@@ -330,6 +335,14 @@ class MainEditorWindow(QMainWindow):
             parts.append(f"stage: {stage}")
 
         return " | ".join(str(part) for part in parts if str(part).strip())
+
+    def _validate_active_document_for_action(self, action_label: str) -> bool:
+        try:
+            self._controller.validate_active_document()
+            return True
+        except Exception as error:
+            self._show_error_message(f"Cannot {action_label}: {self._format_exception_message(error)}")
+            return False
 
     def _current_screen_geometry(self) -> QRect:
         screen = self.screen()
