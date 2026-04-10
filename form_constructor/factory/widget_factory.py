@@ -44,7 +44,11 @@ from form_constructor.document.models import EntityModel
 
 class WidgetFactory:
     def __init__(self) -> None:
-        self._constructors = {
+        self._constructors = self._build_constructors()
+        self._property_appliers = self._build_property_appliers()
+
+    def _build_constructors(self) -> dict[str, type[QWidget]]:
+        return {
             "QWidget": QWidget,
             "QFrame": QFrame,
             "QGroupBox": QGroupBox,
@@ -83,7 +87,9 @@ class WidgetFactory:
             "ContainerContent": QWidget,
             "SplitterPane": QWidget,
         }
-        self._property_appliers = {
+
+    def _build_property_appliers(self) -> dict[str, object]:
+        return {
             "QLabel": self._apply_text_property,
             "QPushButton": self._apply_text_property,
             "QLineEdit": self._apply_line_edit_properties,
@@ -167,44 +173,33 @@ class WidgetFactory:
 
     def _apply_combo_box_properties(self, widget: QComboBox, entity: EntityModel) -> None:
         widget.clear()
-        items = entity.properties.get("items", [])
-        if isinstance(items, str):
-            items = [item.strip() for item in items.split(",") if item.strip()]
-        widget.addItems([str(item) for item in items])
+        items = self._normalize_combo_items(entity.properties.get("items", []))
+        widget.addItems(items)
         widget.setEditable(bool(entity.properties.get("editable", False)))
         current_index = int(entity.properties.get("current_index", 0))
         if widget.count() > 0:
             widget.setCurrentIndex(max(0, min(current_index, widget.count() - 1)))
 
     def _apply_list_view_properties(self, widget: QListView, entity: EntityModel) -> None:
-        model_items = entity.properties.get("model_items", [])
-        if not isinstance(model_items, list):
-            model_items = []
-        widget.setModel(QStringListModel([str(item) for item in model_items], widget))
+        model_items = self._normalize_string_list(entity.properties.get("model_items", []))
+        widget.setModel(QStringListModel(model_items, widget))
 
     def _apply_tree_view_properties(self, widget: QTreeView, entity: EntityModel) -> None:
-        header_labels = entity.properties.get("header_labels", [])
-        if not isinstance(header_labels, list):
-            header_labels = []
+        header_labels = self._normalize_string_list(entity.properties.get("header_labels", []))
         model = QStandardItemModel(widget)
-        model.setHorizontalHeaderLabels([str(item) for item in header_labels])
+        model.setHorizontalHeaderLabels(header_labels)
         widget.setModel(model)
 
     def _apply_table_view_properties(self, widget: QTableView, entity: EntityModel) -> None:
         column_count = max(0, int(entity.properties.get("column_count", 3)))
-        header_labels = entity.properties.get("header_labels", [])
-        if not isinstance(header_labels, list):
-            header_labels = []
+        header_labels = self._normalize_string_list(entity.properties.get("header_labels", []))
         model = QStandardItemModel(widget)
         model.setColumnCount(column_count)
-        model.setHorizontalHeaderLabels([str(item) for item in header_labels[:column_count]])
+        model.setHorizontalHeaderLabels(header_labels[:column_count])
         widget.setModel(model)
 
     def _apply_list_widget_properties(self, widget: QListWidget, entity: EntityModel) -> None:
-        items = entity.properties.get("items", [])
-        if not isinstance(items, list):
-            items = []
-        normalized_items = [str(item) for item in items]
+        normalized_items = self._normalize_string_list(entity.properties.get("items", []))
         current_row = int(entity.properties.get("current_row", -1))
         widget.clear()
         widget.addItems(normalized_items)
@@ -217,15 +212,11 @@ class WidgetFactory:
     def _apply_table_widget_properties(self, widget: QTableWidget, entity: EntityModel) -> None:
         row_count = max(0, int(entity.properties.get("row_count", 3)))
         column_count = max(0, int(entity.properties.get("column_count", 3)))
-        horizontal_headers = entity.properties.get("horizontal_headers", [])
-        vertical_headers = entity.properties.get("vertical_headers", [])
-        if not isinstance(horizontal_headers, list):
-            horizontal_headers = []
-        if not isinstance(vertical_headers, list):
-            vertical_headers = []
+        horizontal_headers = self._normalize_string_list(entity.properties.get("horizontal_headers", []))
+        vertical_headers = self._normalize_string_list(entity.properties.get("vertical_headers", []))
 
-        normalized_horizontal = [str(item) for item in horizontal_headers][:column_count]
-        normalized_vertical = [str(item) for item in vertical_headers][:row_count]
+        normalized_horizontal = horizontal_headers[:column_count]
+        normalized_vertical = vertical_headers[:row_count]
         cell_values = entity.properties.get("cell_values", [])
         if not isinstance(cell_values, list):
             cell_values = []
@@ -245,14 +236,12 @@ class WidgetFactory:
 
     def _apply_tree_widget_properties(self, widget: QTreeWidget, entity: EntityModel) -> None:
         column_count = max(0, int(entity.properties.get("column_count", 1)))
-        header_labels = entity.properties.get("header_labels", [])
+        header_labels = self._normalize_string_list(entity.properties.get("header_labels", []))
         tree_items = entity.properties.get("tree_items", [])
-        if not isinstance(header_labels, list):
-            header_labels = []
         if not isinstance(tree_items, list):
             tree_items = []
 
-        normalized_headers = [str(item) for item in header_labels][:column_count]
+        normalized_headers = header_labels[:column_count]
         widget.clear()
         widget.setColumnCount(column_count)
         if normalized_headers:
@@ -261,34 +250,29 @@ class WidgetFactory:
             widget.addTopLevelItem(self._build_tree_widget_item(tree_item, column_count))
 
     def _apply_date_edit_properties(self, widget: QDateEdit, entity: EntityModel) -> None:
-        minimum_date = self._to_qdate(str(entity.properties.get("minimum_date", "1900-01-01")))
-        maximum_date = self._to_qdate(str(entity.properties.get("maximum_date", "2100-12-31")))
-        current_date = self._to_qdate(str(entity.properties.get("date", "2026-01-01")))
-        widget.setMinimumDate(minimum_date)
-        widget.setMaximumDate(maximum_date)
-        widget.setDate(current_date)
+        self._apply_date_bounds(
+            widget,
+            entity,
+            current_key="date",
+            current_default="2026-01-01",
+        )
 
     def _apply_datetime_edit_properties(self, widget: QDateTimeEdit, entity: EntityModel) -> None:
-        minimum_datetime = self._to_qdatetime(
-            str(entity.properties.get("minimum_datetime", "1900-01-01 00:00:00"))
+        self._apply_datetime_bounds(
+            widget,
+            entity,
+            current_key="datetime",
+            current_default="2026-01-01 12:00:00",
         )
-        maximum_datetime = self._to_qdatetime(
-            str(entity.properties.get("maximum_datetime", "2100-12-31 23:59:59"))
-        )
-        current_datetime = self._to_qdatetime(
-            str(entity.properties.get("datetime", "2026-01-01 12:00:00"))
-        )
-        widget.setMinimumDateTime(minimum_datetime)
-        widget.setMaximumDateTime(maximum_datetime)
-        widget.setDateTime(current_datetime)
 
     def _apply_calendar_widget_properties(self, widget: QCalendarWidget, entity: EntityModel) -> None:
-        minimum_date = self._to_qdate(str(entity.properties.get("minimum_date", "1900-01-01")))
-        maximum_date = self._to_qdate(str(entity.properties.get("maximum_date", "2100-12-31")))
-        selected_date = self._to_qdate(str(entity.properties.get("selected_date", "2026-01-01")))
-        widget.setMinimumDate(minimum_date)
-        widget.setMaximumDate(maximum_date)
-        widget.setSelectedDate(selected_date)
+        self._apply_date_bounds(
+            widget,
+            entity,
+            current_key="selected_date",
+            current_default="2026-01-01",
+            current_setter=widget.setSelectedDate,
+        )
 
     def _apply_font_combo_box_properties(self, widget: QFontComboBox, entity: EntityModel) -> None:
         self._apply_font_family(widget, str(entity.properties.get("current_font_family", "")))
@@ -301,14 +285,7 @@ class WidgetFactory:
         widget.setKeySequence(QKeySequence(key_sequence))
 
     def _apply_dial_properties(self, widget: QDial, entity: EntityModel) -> None:
-        minimum = int(entity.properties.get("minimum", 0))
-        maximum = int(entity.properties.get("maximum", 100))
-        step = int(entity.properties.get("step", 1))
-        value = int(entity.properties.get("value", 0))
-        widget.setMinimum(minimum)
-        widget.setMaximum(maximum)
-        widget.setSingleStep(step)
-        widget.setValue(value)
+        self._apply_integer_range_properties(widget, entity, default_maximum=100)
 
     def _apply_lcd_number_properties(self, widget: QLCDNumber, entity: EntityModel) -> None:
         digit_count = int(entity.properties.get("digit_count", 5))
@@ -317,60 +294,36 @@ class WidgetFactory:
         widget.display(value)
 
     def _apply_time_edit_properties(self, widget: QTimeEdit, entity: EntityModel) -> None:
-        minimum_time = self._to_qtime(str(entity.properties.get("minimum_time", "00:00:00")))
-        maximum_time = self._to_qtime(str(entity.properties.get("maximum_time", "23:59:59")))
-        current_time = self._to_qtime(str(entity.properties.get("time", "12:00:00")))
-        widget.setMinimumTime(minimum_time)
-        widget.setMaximumTime(maximum_time)
-        widget.setTime(current_time)
+        self._apply_time_bounds(
+            widget,
+            entity,
+            current_key="time",
+            current_default="12:00:00",
+        )
 
     def _apply_progress_bar_properties(self, widget: QProgressBar, entity: EntityModel) -> None:
-        minimum = int(entity.properties.get("minimum", 0))
-        maximum = int(entity.properties.get("maximum", 100))
         value = int(entity.properties.get("value", 0))
         text_visible = bool(entity.properties.get("text_visible", True))
-        widget.setMinimum(minimum)
-        widget.setMaximum(maximum)
+        self._apply_integer_minimum_maximum(widget, entity, default_maximum=100)
         widget.setValue(value)
         widget.setTextVisible(text_visible)
 
     def _apply_spin_box_properties(self, widget: QSpinBox, entity: EntityModel) -> None:
-        minimum = int(entity.properties.get("minimum", 0))
-        maximum = int(entity.properties.get("maximum", 99))
-        step = int(entity.properties.get("step", 1))
-        value = int(entity.properties.get("value", 0))
-        widget.setMinimum(minimum)
-        widget.setMaximum(maximum)
-        widget.setSingleStep(step)
+        self._apply_integer_range_properties(widget, entity, default_maximum=99)
         widget.setPrefix(str(entity.properties.get("prefix", "")))
         widget.setSuffix(str(entity.properties.get("suffix", "")))
-        widget.setValue(value)
 
     def _apply_double_spin_box_properties(self, widget: QDoubleSpinBox, entity: EntityModel) -> None:
-        minimum = float(entity.properties.get("minimum", 0.0))
-        maximum = float(entity.properties.get("maximum", 99.0))
-        step = float(entity.properties.get("step", 1.0))
         decimals = int(entity.properties.get("decimals", 2))
-        value = float(entity.properties.get("value", 0.0))
-        widget.setMinimum(minimum)
-        widget.setMaximum(maximum)
-        widget.setSingleStep(step)
+        self._apply_float_range_properties(widget, entity, default_maximum=99.0)
         widget.setDecimals(decimals)
         widget.setPrefix(str(entity.properties.get("prefix", "")))
         widget.setSuffix(str(entity.properties.get("suffix", "")))
-        widget.setValue(value)
 
     def _apply_slider_properties(self, widget: QSlider, entity: EntityModel) -> None:
         orientation = str(entity.properties.get("orientation", "horizontal")).lower()
-        minimum = int(entity.properties.get("minimum", 0))
-        maximum = int(entity.properties.get("maximum", 100))
-        step = int(entity.properties.get("step", 1))
-        value = int(entity.properties.get("value", 0))
         widget.setOrientation(self._map_orientation(orientation))
-        widget.setMinimum(minimum)
-        widget.setMaximum(maximum)
-        widget.setSingleStep(step)
-        widget.setValue(value)
+        self._apply_integer_range_properties(widget, entity, default_maximum=100)
 
     def _apply_group_box_properties(self, widget: QGroupBox, entity: EntityModel) -> None:
         widget.setTitle(str(entity.properties.get("title", "")))
@@ -388,9 +341,9 @@ class WidgetFactory:
     def _apply_splitter_properties(self, widget: QSplitter, entity: EntityModel) -> None:
         orientation = str(entity.properties.get("orientation", "horizontal")).lower()
         widget.setOrientation(self._map_orientation(orientation))
-        sizes = entity.properties.get("sizes", [1, 1])
-        if isinstance(sizes, list) and len(sizes) == 2:
-            widget.setSizes([max(1, int(size)) for size in sizes])
+        sizes = self._normalize_splitter_sizes(entity.properties.get("sizes", [1, 1]))
+        if sizes is not None:
+            widget.setSizes(sizes)
 
     def _apply_wizard_properties(self, widget: QWizard, entity: EntityModel) -> None:
         widget.setWindowTitle(str(entity.properties.get("window_title", "Wizard")))
@@ -470,3 +423,87 @@ class WidgetFactory:
             for child_data in raw_children:
                 item.addChild(self._build_tree_widget_item(child_data, column_count))
         return item
+
+    @staticmethod
+    def _normalize_string_list(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item) for item in value]
+
+    @classmethod
+    def _normalize_combo_items(cls, value: object) -> list[str]:
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return cls._normalize_string_list(value)
+
+    @staticmethod
+    def _normalize_splitter_sizes(value: object) -> list[int] | None:
+        if not isinstance(value, list) or len(value) != 2:
+            return None
+        return [max(1, int(size)) for size in value]
+
+    @staticmethod
+    def _apply_integer_minimum_maximum(widget: QWidget, entity: EntityModel, default_maximum: int) -> None:
+        widget.setMinimum(int(entity.properties.get("minimum", 0)))
+        widget.setMaximum(int(entity.properties.get("maximum", default_maximum)))
+
+    @classmethod
+    def _apply_integer_range_properties(
+        cls,
+        widget: QWidget,
+        entity: EntityModel,
+        default_maximum: int,
+    ) -> None:
+        cls._apply_integer_minimum_maximum(widget, entity, default_maximum)
+        widget.setSingleStep(int(entity.properties.get("step", 1)))
+        widget.setValue(int(entity.properties.get("value", 0)))
+
+    @staticmethod
+    def _apply_float_range_properties(
+        widget: QDoubleSpinBox,
+        entity: EntityModel,
+        default_maximum: float,
+    ) -> None:
+        widget.setMinimum(float(entity.properties.get("minimum", 0.0)))
+        widget.setMaximum(float(entity.properties.get("maximum", default_maximum)))
+        widget.setSingleStep(float(entity.properties.get("step", 1.0)))
+        widget.setValue(float(entity.properties.get("value", 0.0)))
+
+    def _apply_date_bounds(
+        self,
+        widget: QDateEdit | QCalendarWidget,
+        entity: EntityModel,
+        current_key: str,
+        current_default: str,
+        current_setter=None,
+    ) -> None:
+        widget.setMinimumDate(self._to_qdate(str(entity.properties.get("minimum_date", "1900-01-01"))))
+        widget.setMaximumDate(self._to_qdate(str(entity.properties.get("maximum_date", "2100-12-31"))))
+        target_setter = widget.setDate if current_setter is None else current_setter
+        target_setter(self._to_qdate(str(entity.properties.get(current_key, current_default))))
+
+    def _apply_time_bounds(
+        self,
+        widget: QTimeEdit,
+        entity: EntityModel,
+        current_key: str,
+        current_default: str,
+    ) -> None:
+        widget.setMinimumTime(self._to_qtime(str(entity.properties.get("minimum_time", "00:00:00"))))
+        widget.setMaximumTime(self._to_qtime(str(entity.properties.get("maximum_time", "23:59:59"))))
+        widget.setTime(self._to_qtime(str(entity.properties.get(current_key, current_default))))
+
+    def _apply_datetime_bounds(
+        self,
+        widget: QDateTimeEdit,
+        entity: EntityModel,
+        current_key: str,
+        current_default: str,
+    ) -> None:
+        widget.setMinimumDateTime(
+            self._to_qdatetime(str(entity.properties.get("minimum_datetime", "1900-01-01 00:00:00")))
+        )
+        widget.setMaximumDateTime(
+            self._to_qdatetime(str(entity.properties.get("maximum_datetime", "2100-12-31 23:59:59")))
+        )
+        widget.setDateTime(self._to_qdatetime(str(entity.properties.get(current_key, current_default))))

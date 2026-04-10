@@ -224,6 +224,32 @@ class PropertyPanel(QWidget):
         spin.setRange(minimum, maximum)
         return spin
 
+    @staticmethod
+    def _set_blocked_text(widget: QLineEdit, value: str) -> None:
+        with QSignalBlocker(widget):
+            widget.setText(value)
+
+    @staticmethod
+    def _set_blocked_plain_text(widget: PlainTextPropertyEditor, value: str) -> None:
+        with QSignalBlocker(widget):
+            widget.setPlainText(value)
+
+    @staticmethod
+    def _set_blocked_spin_value(widget: QSpinBox, value: int) -> None:
+        with QSignalBlocker(widget):
+            widget.setValue(value)
+
+    @staticmethod
+    def _set_blocked_combo_text(widget: QComboBox, value: str) -> None:
+        with QSignalBlocker(widget):
+            index = widget.findText(value)
+            widget.setCurrentIndex(max(0, index))
+
+    @staticmethod
+    def _clear_blocked_list(widget: QListWidget) -> None:
+        with QSignalBlocker(widget):
+            widget.clear()
+
     def clear(self) -> None:
         self._active_document = None
         self._active_entity_id = None
@@ -233,16 +259,11 @@ class PropertyPanel(QWidget):
         self._selected_wizard_page_id = None
         for field in self._form_value_labels.values():
             field.setText("No active form")
-        with QSignalBlocker(self._form_name_edit):
-            self._form_name_edit.clear()
-        with QSignalBlocker(self._form_root_widget_type_edit):
-            self._form_root_widget_type_edit.setCurrentIndex(0)
-        with QSignalBlocker(self._form_window_title_edit):
-            self._form_window_title_edit.clear()
-        with QSignalBlocker(self._form_width_spin):
-            self._form_width_spin.setValue(self._form_width_spin.minimum())
-        with QSignalBlocker(self._form_height_spin):
-            self._form_height_spin.setValue(self._form_height_spin.minimum())
+        self._set_blocked_text(self._form_name_edit, "")
+        self._set_blocked_combo_text(self._form_root_widget_type_edit, "QWidget")
+        self._set_blocked_text(self._form_window_title_edit, "")
+        self._set_blocked_spin_value(self._form_width_spin, self._form_width_spin.minimum())
+        self._set_blocked_spin_value(self._form_height_spin, self._form_height_spin.minimum())
         self._clear_tabs_ui()
         self._clear_splitter_ui()
         self._clear_wizard_ui()
@@ -254,17 +275,20 @@ class PropertyPanel(QWidget):
         values = form_root.to_dict()
         for key, label in self._form_value_labels.items():
             label.setText(str(values.get(key, "")))
-        with QSignalBlocker(self._form_root_widget_type_edit):
-            index = self._form_root_widget_type_edit.findText(str(values.get("root_widget_type", "QWidget")))
-            self._form_root_widget_type_edit.setCurrentIndex(max(0, index))
-        with QSignalBlocker(self._form_name_edit):
-            self._form_name_edit.setText(str(values.get("name", "")))
-        with QSignalBlocker(self._form_window_title_edit):
-            self._form_window_title_edit.setText(str(values.get("window_title", "")))
-        with QSignalBlocker(self._form_width_spin):
-            self._form_width_spin.setValue(int(values.get("width", self._form_width_spin.minimum())))
-        with QSignalBlocker(self._form_height_spin):
-            self._form_height_spin.setValue(int(values.get("height", self._form_height_spin.minimum())))
+        self._set_blocked_combo_text(
+            self._form_root_widget_type_edit,
+            str(values.get("root_widget_type", "QWidget")),
+        )
+        self._set_blocked_text(self._form_name_edit, str(values.get("name", "")))
+        self._set_blocked_text(self._form_window_title_edit, str(values.get("window_title", "")))
+        self._set_blocked_spin_value(
+            self._form_width_spin,
+            int(values.get("width", self._form_width_spin.minimum())),
+        )
+        self._set_blocked_spin_value(
+            self._form_height_spin,
+            int(values.get("height", self._form_height_spin.minimum())),
+        )
 
     def set_form_mode(self, document: FormDocument | None) -> None:
         self._active_entity_id = None
@@ -299,23 +323,14 @@ class PropertyPanel(QWidget):
         self._active_entity_id = entity.id
         self._active_entity_type = entity.type
         self._active_definition = definition
-        with QSignalBlocker(self._entity_type_edit):
-            self._entity_type_edit.setText(definition.type_name)
-        with QSignalBlocker(self._entity_id_edit):
-            self._entity_id_edit.setText(entity.id)
-        with QSignalBlocker(self._entity_parent_edit):
-            self._entity_parent_edit.setText(entity.parent_id)
-
-        with QSignalBlocker(self._entity_name_edit):
-            self._entity_name_edit.setText(entity.name)
-        with QSignalBlocker(self._x_spin):
-            self._x_spin.setValue(int(entity.geometry["x"]))
-        with QSignalBlocker(self._y_spin):
-            self._y_spin.setValue(int(entity.geometry["y"]))
-        with QSignalBlocker(self._width_spin):
-            self._width_spin.setValue(int(entity.geometry["width"]))
-        with QSignalBlocker(self._height_spin):
-            self._height_spin.setValue(int(entity.geometry["height"]))
+        self._set_blocked_text(self._entity_type_edit, definition.type_name)
+        self._set_blocked_text(self._entity_id_edit, entity.id)
+        self._set_blocked_text(self._entity_parent_edit, entity.parent_id)
+        self._set_blocked_text(self._entity_name_edit, entity.name)
+        self._set_blocked_spin_value(self._x_spin, int(entity.geometry["x"]))
+        self._set_blocked_spin_value(self._y_spin, int(entity.geometry["y"]))
+        self._set_blocked_spin_value(self._width_spin, int(entity.geometry["width"]))
+        self._set_blocked_spin_value(self._height_spin, int(entity.geometry["height"]))
         self._apply_schema_to_property_fields(entity, definition)
         self._apply_contextual_property_constraints(document, entity)
         self._apply_schema_to_basic_fields(definition)
@@ -345,10 +360,8 @@ class PropertyPanel(QWidget):
         self._remove_tab_button.setEnabled(len(tab_pages) > 1)
 
     def _clear_tabs_ui(self) -> None:
-        with QSignalBlocker(self._tabs_list):
-            self._tabs_list.clear()
-        with QSignalBlocker(self._tab_title_edit):
-            self._tab_title_edit.clear()
+        self._clear_blocked_list(self._tabs_list)
+        self._set_blocked_text(self._tab_title_edit, "")
         self._selected_tab_page_id = None
         self._tab_title_edit.setEnabled(False)
         self._add_tab_button.setEnabled(False)
@@ -370,12 +383,9 @@ class PropertyPanel(QWidget):
             self._splitter_secondary_size_spin.setValue(normalized_sizes[1])
 
     def _clear_splitter_ui(self) -> None:
-        with QSignalBlocker(self._splitter_orientation_edit):
-            self._splitter_orientation_edit.setCurrentIndex(0)
-        with QSignalBlocker(self._splitter_primary_size_spin):
-            self._splitter_primary_size_spin.setValue(1)
-        with QSignalBlocker(self._splitter_secondary_size_spin):
-            self._splitter_secondary_size_spin.setValue(1)
+        self._set_blocked_combo_text(self._splitter_orientation_edit, "horizontal")
+        self._set_blocked_spin_value(self._splitter_primary_size_spin, 1)
+        self._set_blocked_spin_value(self._splitter_secondary_size_spin, 1)
         self._splitter_box.hide()
 
     def _populate_wizard(self, document: FormDocument, entity: EntityModel) -> None:
@@ -398,12 +408,9 @@ class PropertyPanel(QWidget):
         self._remove_wizard_page_button.setEnabled(len(pages) > 1)
 
     def _clear_wizard_ui(self) -> None:
-        with QSignalBlocker(self._wizard_pages_list):
-            self._wizard_pages_list.clear()
-        with QSignalBlocker(self._wizard_page_title_edit):
-            self._wizard_page_title_edit.clear()
-        with QSignalBlocker(self._wizard_page_subtitle_edit):
-            self._wizard_page_subtitle_edit.clear()
+        self._clear_blocked_list(self._wizard_pages_list)
+        self._set_blocked_text(self._wizard_page_title_edit, "")
+        self._set_blocked_plain_text(self._wizard_page_subtitle_edit, "")
         self._selected_wizard_page_id = None
         self._wizard_page_title_edit.setEnabled(False)
         self._wizard_page_subtitle_edit.setEnabled(False)
@@ -420,29 +427,48 @@ class PropertyPanel(QWidget):
         document: FormDocument,
         entity: EntityModel,
     ) -> None:
-        registry = document.widget_registry
-        type_name = entity.type
+        self._refresh_special_section(
+            document=document,
+            entity=entity,
+            action_name="add_tab_page",
+            populate=self._populate_tabs,
+            clear=self._clear_tabs_ui,
+            box=self._tabs_box,
+        )
+        self._refresh_special_section(
+            document=document,
+            entity=entity,
+            action_name="set_splitter_orientation",
+            populate=lambda _document, current_entity: self._populate_splitter(current_entity),
+            clear=self._clear_splitter_ui,
+            box=self._splitter_box,
+        )
+        self._refresh_special_section(
+            document=document,
+            entity=entity,
+            action_name="add_wizard_page",
+            populate=self._populate_wizard,
+            clear=self._clear_wizard_ui,
+            box=self._wizard_box,
+        )
 
-        if registry.supports_special_action(type_name, "add_tab_page"):
-            self._populate_tabs(document, entity)
-            self._tabs_box.show()
-        else:
-            self._clear_tabs_ui()
-            self._tabs_box.hide()
-
-        if registry.supports_special_action(type_name, "set_splitter_orientation"):
-            self._populate_splitter(entity)
-            self._splitter_box.show()
-        else:
-            self._clear_splitter_ui()
-            self._splitter_box.hide()
-
-        if registry.supports_special_action(type_name, "add_wizard_page"):
-            self._populate_wizard(document, entity)
-            self._wizard_box.show()
-        else:
-            self._clear_wizard_ui()
-            self._wizard_box.hide()
+    def _refresh_special_section(
+        self,
+        *,
+        document: FormDocument,
+        entity: EntityModel,
+        action_name: str,
+        populate,
+        clear,
+        box: QGroupBox,
+    ) -> None:
+        supports_action = document.widget_registry.supports_special_action(entity.type, action_name)
+        if supports_action:
+            populate(document, entity)
+            box.show()
+            return
+        clear()
+        box.hide()
 
     def _apply_schema_to_basic_fields(self, definition: WidgetTypeDefinition) -> None:
         available_properties = {prop.name for prop in self._basic_schema_properties(definition)}
@@ -493,11 +519,10 @@ class PropertyPanel(QWidget):
 
     def _update_tab_title_editor(self) -> None:
         current_tab_page = self._current_tab_page()
-        with QSignalBlocker(self._tab_title_edit):
-            if current_tab_page is None:
-                self._tab_title_edit.clear()
-            else:
-                self._tab_title_edit.setText(str(current_tab_page.properties.get("title", "")))
+        self._set_blocked_text(
+            self._tab_title_edit,
+            "" if current_tab_page is None else str(current_tab_page.properties.get("title", "")),
+        )
         self._tab_title_edit.setEnabled(current_tab_page is not None)
 
     def _emit_add_tab(self) -> None:
@@ -544,14 +569,14 @@ class PropertyPanel(QWidget):
 
     def _update_wizard_page_editors(self) -> None:
         current_page = self._current_wizard_page()
-        with QSignalBlocker(self._wizard_page_title_edit):
-            self._wizard_page_title_edit.setText(
-                "" if current_page is None else str(current_page.properties.get("title", ""))
-            )
-        with QSignalBlocker(self._wizard_page_subtitle_edit):
-            self._wizard_page_subtitle_edit.setPlainText(
-                "" if current_page is None else str(current_page.properties.get("subtitle", ""))
-            )
+        self._set_blocked_text(
+            self._wizard_page_title_edit,
+            "" if current_page is None else str(current_page.properties.get("title", "")),
+        )
+        self._set_blocked_plain_text(
+            self._wizard_page_subtitle_edit,
+            "" if current_page is None else str(current_page.properties.get("subtitle", "")),
+        )
         enabled = current_page is not None
         self._wizard_page_title_edit.setEnabled(enabled)
         self._wizard_page_subtitle_edit.setEnabled(enabled)
@@ -666,12 +691,6 @@ class PropertyPanel(QWidget):
 
     def _create_property_widget(self, prop: PropertyDefinition) -> QWidget:
         widget = self._editor_factory.create_editor(prop)
-        if isinstance(widget, QLineEdit) and prop.data_type == "date_string":
-            widget.setPlaceholderText("YYYY-MM-DD")
-        if isinstance(widget, QLineEdit) and prop.data_type == "time_string":
-            widget.setPlaceholderText("HH:MM:SS")
-        if isinstance(widget, QLineEdit) and prop.data_type == "datetime_string":
-            widget.setPlaceholderText("YYYY-MM-DD HH:MM:SS")
         self._editor_factory.connect_change(
             widget,
             prop,

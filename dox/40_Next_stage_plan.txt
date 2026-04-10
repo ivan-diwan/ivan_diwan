@@ -1,0 +1,143 @@
+Next Stage Plan
+
+Date: 2026-04-10
+Working branch: `codex/working-baseline`
+Starting test status: `198 passed, 82 subtests passed`
+
+
+1. Purpose of the next stage
+
+The previous stage reduced major architectural pressure in controller,
+document normalization, widget factory, and property panel logic.
+
+The next stage should shift from broad structural cleanup toward
+targeted product hardening:
+
+- stronger confidence around the most sensitive editor flows
+- better diagnostics and validation visibility for the user
+- clearer long-term extension path for the widget catalog
+
+
+2. Main objective
+
+The main objective of the next stage is to make the editor safer to extend.
+
+This means:
+- adding confidence where current behavior is correct but still fragile
+- tightening feedback around invalid states earlier in the workflow
+- preparing the project for future widget catalog growth without rebuilding core layers again
+
+
+3. Priority order
+
+Priority 1: Strengthen targeted test coverage around sensitive runtime and UI paths
+
+Why:
+- major files were simplified, but some critical behaviors are still protected mostly by broad smoke coverage
+- the next development stage will be safer if the most failure-prone paths have more direct tests
+
+Primary targets:
+- `form_constructor/factory/widget_factory.py`
+- `form_constructor/ui/properties/property_panel.py`
+- `form_constructor/ui/main_editor/main_editor_window.py`
+- `form_constructor/canvas/canvas_editor.py`
+
+Desired result:
+- stronger focused tests for selection switching, special containers, property application, and import/export feedback
+
+
+Priority 2: Improve user-facing validation and error feedback before export/import failure
+
+Why:
+- diagnostics improved, but most failures still surface only when an operation already breaks
+- earlier feedback in the editor would make the tool feel more reliable and reduce recovery friction
+
+Primary targets:
+- `form_constructor/ui/main_editor/main_editor_window.py`
+- `form_constructor/ui/properties/property_panel.py`
+- `form_constructor/controller/document_controller.py`
+- `form_constructor/document/validator.py`
+
+Desired result:
+- clearer messages before destructive or invalid operations
+- less ambiguity when a property value is out of bounds or structurally inconsistent
+
+
+Priority 3: Prepare the widget catalog for the next expansion cycle
+
+Why:
+- the architecture is now in a better state for growth
+- the next meaningful product step will likely be controlled expansion of supported widget behavior
+
+Primary targets:
+- `form_constructor/registry/builtins.py`
+- `form_constructor/registry/definitions.py`
+- `form_constructor/factory/widget_factory.py`
+- `form_constructor/conversion/exporter.py`
+- `form_constructor/conversion/importer.py`
+
+Desired result:
+- a cleaner path for adding or deepening widget support with less duplicated work
+
+
+4. Recommended work sequence
+
+1. Add focused regression tests for the most sensitive editor and runtime flows.
+2. Use those tests to improve validation and pre-failure feedback in the UI.
+3. After confidence and diagnostics improve, begin the next widget catalog expansion pass.
+4. Keep architecture notes updated only after the new behavior settles.
+
+
+5. Recommended commit blocks
+
+- Commit block 1
+  Title idea:
+  - `Add focused regression coverage for editor interaction paths`
+
+- Commit block 2
+  Title idea:
+  - `Improve validation feedback in editor workflows`
+
+- Commit block 3
+  Title idea:
+  - `Expand and harden widget catalog support`
+
+- Commit block 4
+  Title idea:
+  - `Document next-stage architecture and support boundaries`
+
+
+6. High-risk files for the next stage
+
+- `form_constructor/ui/main_editor/main_editor_window.py`
+  Risk:
+  - central place for message flow, action wiring, and user-visible feedback
+
+- `form_constructor/canvas/canvas_editor.py`
+  Risk:
+  - selection, rebuild, drop handling, and visual parenting logic can regress in subtle ways
+
+- `form_constructor/conversion/exporter.py`
+  Risk:
+  - export stability and deterministic output are critical for round-trip confidence
+
+- `form_constructor/registry/builtins.py`
+  Risk:
+  - widget schema changes can affect multiple layers at once
+
+
+7. Completion condition for the next stage
+
+The next stage should be considered complete when:
+
+- the most sensitive editor/runtime paths have stronger direct tests
+- validation and diagnostics are clearer before failures propagate
+- the widget catalog is easier to extend with predictable changes across layers
+- the full test suite still passes after the work
+
+
+8. Bottom line
+
+The last stage cleaned the architecture.
+The next stage should convert that architectural headroom into confidence,
+feedback quality, and safer future feature growth.

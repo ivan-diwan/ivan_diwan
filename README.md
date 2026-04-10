@@ -86,6 +86,28 @@ The repository is now versioned from a clean baseline commit and uses:
 - `main` for the stable baseline
 - feature branches for further work
 
+The current architecture cleanup stage is complete:
+- `DocumentController` delegates file I/O through `document_io_service.py`
+- `FormDocument` delegates widget property normalization through `property_normalizer.py`
+- `PythonImporter` reuses the shared property normalizer for supported widget-state normalization
+- `WidgetFactory` is now flatter and grouped around clearer runtime-application helpers
+- `PropertyPanel` is leaner and delegates editor configuration to `PropertyEditorFactory`
+
+## Architecture Boundaries
+
+The intended responsibility split is:
+- `controller/`: editor orchestration, selection flow, UI-facing commands
+- `document/`: document state, mutation rules, property normalization, validation
+- `factory/`: runtime widget creation and application of already-normalized state
+- `conversion/`: format translation and diagnostics for Python import/export
+- `ui/`: editor widgets, interaction wiring, schema-driven editing
+
+In practical terms:
+- `WidgetPropertyNormalizer` is the main place for coercing raw widget property values
+- `DocumentValidator` is the main place for rejecting invalid document state
+- `WidgetFactory` should apply state, not redefine validation rules
+- importer/exporter should translate data and surface diagnostics, not own duplicate business rules when a shared normalizer already exists
+
 ## Notes
 
 - The editor currently targets `QWidget` and `QDialog` roots.

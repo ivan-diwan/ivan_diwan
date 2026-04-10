@@ -29,29 +29,39 @@ class PropertyEditorFactory:
         if prop.allowed_values:
             widget = QComboBox(parent)
             widget.addItems([str(value) for value in prop.allowed_values])
-            return widget
+            return self.configure_editor(widget, prop)
 
         if prop.editor == "checkbox" or prop.data_type == "bool":
-            return QCheckBox(parent)
+            return self.configure_editor(QCheckBox(parent), prop)
 
         if prop.editor == "spinbox" or prop.data_type == "int":
             widget = QSpinBox(parent)
             widget.setRange(-9999, 9999)
-            return widget
+            return self.configure_editor(widget, prop)
 
         if prop.data_type == "float":
             widget = QDoubleSpinBox(parent)
             widget.setRange(-9999.0, 9999.0)
             widget.setDecimals(3)
-            return widget
+            return self.configure_editor(widget, prop)
 
         if prop.editor in {"multiline", "table_text", "tree_text"}:
-            return PlainTextPropertyEditor(parent)
+            return self.configure_editor(PlainTextPropertyEditor(parent), prop)
 
         if prop.data_type in {"list[str]", "list[int]", "list[list[str]]", "list[tree_item]"}:
-            return PlainTextPropertyEditor(parent)
+            return self.configure_editor(PlainTextPropertyEditor(parent), prop)
 
-        return QLineEdit(parent)
+        return self.configure_editor(QLineEdit(parent), prop)
+
+    def configure_editor(self, widget: QWidget, prop: PropertyDefinition) -> QWidget:
+        if isinstance(widget, QLineEdit):
+            if prop.data_type == "date_string":
+                widget.setPlaceholderText("YYYY-MM-DD")
+            elif prop.data_type == "time_string":
+                widget.setPlaceholderText("HH:MM:SS")
+            elif prop.data_type == "datetime_string":
+                widget.setPlaceholderText("YYYY-MM-DD HH:MM:SS")
+        return widget
 
     def connect_change(self, widget: QWidget, prop: PropertyDefinition, callback) -> None:
         if isinstance(widget, QComboBox):

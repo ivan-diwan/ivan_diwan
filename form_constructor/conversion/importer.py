@@ -4,6 +4,7 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from form_constructor.document.property_normalizer import WidgetPropertyNormalizer
 from form_constructor.document.form_document import FormDocument
 from form_constructor.document.models import EntityModel, FormRootModel
 from form_constructor.document.validator import DocumentValidator
@@ -77,6 +78,7 @@ class PythonImporter:
     ) -> None:
         self._widget_registry = widget_registry
         self._validator = validator or DocumentValidator()
+        self._property_normalizer = WidgetPropertyNormalizer()
         self._last_diagnostic: ImportDiagnostic | None = None
 
     @property
@@ -877,8 +879,7 @@ class PythonImporter:
                 return index
         return 0
 
-    @staticmethod
-    def _normalize_properties_for_type(type_name: str, properties: dict) -> dict:
+    def _normalize_properties_for_type(self, type_name: str, properties: dict) -> dict:
         if type_name == "QLabel":
             properties.setdefault("text", "")
         elif type_name == "QPushButton":
@@ -998,322 +999,63 @@ class PythonImporter:
         elif type_name == "WizardPage":
             properties.setdefault("title", "Page")
             properties.setdefault("subtitle", "")
-        if type_name == "QSpinBox":
-            minimum = int(properties.get("minimum", 0))
-            maximum = int(properties.get("maximum", 99))
-            if minimum > maximum:
-                maximum = minimum
-            step = int(properties.get("step", 1))
-            if step <= 0:
-                step = 1
-            value = int(properties.get("value", 0))
-            properties["minimum"] = minimum
-            properties["maximum"] = maximum
-            properties["step"] = step
-            properties["value"] = max(minimum, min(value, maximum))
-            properties["prefix"] = str(properties.get("prefix", ""))
-            properties["suffix"] = str(properties.get("suffix", ""))
-        if type_name == "QSlider":
+        try:
+            properties = self._apply_widget_normalizer(type_name, properties)
+        except ValueError as error:
+            diagnostic_patterns = {
+                "QDateEdit": "YYYY-MM-DD",
+                "QCalendarWidget": "YYYY-MM-DD",
+                "QTimeEdit": "HH:MM:SS",
+                "QDateTimeEdit": "YYYY-MM-DD HH:MM:SS",
+            }
+            self._raise_diagnostic(
+                str(error),
+                stage="normalize_properties",
+                pattern=diagnostic_patterns.get(type_name),
+            )
+        if type_name == "QFrame":
+            properties["frame_shape"] = str(properties.get("frame_shape", "StyledPanel"))
+            properties["frame_shadow"] = str(properties.get("frame_shadow", "Raised"))
+        if type_name == "QGroupBox":
+            properties["title"] = str(properties.get("title", ""))
+            properties["checkable"] = bool(properties.get("checkable", False))
+            properties["checked"] = bool(properties.get("checked", False))
+        if type_name == "QTabWidget":
+            properties["current_index"] = max(0, int(properties.get("current_index", 0)))
+            properties["tabs_closable"] = bool(properties.get("tabs_closable", False))
+        if type_name == "QScrollArea":
+            properties["widget_resizable"] = bool(properties.get("widget_resizable", True))
+        if type_name == "QSplitter":
             orientation = str(properties.get("orientation", "horizontal")).strip().lower()
             if orientation not in {"horizontal", "vertical"}:
                 orientation = "horizontal"
-            minimum = int(properties.get("minimum", 0))
-            maximum = int(properties.get("maximum", 100))
-            if minimum > maximum:
-                maximum = minimum
-            step = int(properties.get("step", 1))
-            if step <= 0:
-                step = 1
-            value = int(properties.get("value", 0))
+            sizes = properties.get("sizes", [1, 1])
+            if not isinstance(sizes, list) or len(sizes) != 2:
+                sizes = [1, 1]
             properties["orientation"] = orientation
-            properties["minimum"] = minimum
-            properties["maximum"] = maximum
-            properties["step"] = step
-            properties["value"] = max(minimum, min(value, maximum))
-        if type_name == "QListWidget":
-            raw_items = properties.get("items", [])
-            if isinstance(raw_items, list):
-                items = [str(item) for item in raw_items]
-            elif isinstance(raw_items, tuple):
-                items = [str(item) for item in raw_items]
-            elif raw_items in {None, ""}:
-                items = []
-            else:
-                items = [str(raw_items)]
-            current_row = int(properties.get("current_row", -1))
-            current_text = str(properties.get("current_text", ""))
-            if current_row < -1:
-                current_row = -1
-            if not items:
-                current_row = -1
-                current_text = ""
-            elif current_text and current_text in items:
-                current_row = items.index(current_text)
-            elif current_row >= len(items):
-                current_row = -1
-                current_text = ""
-            elif current_row >= 0:
-                current_text = items[current_row]
-            else:
-                current_text = ""
-            properties["items"] = items
-            properties["current_row"] = current_row
-            properties["current_text"] = current_text
-        if type_name == "QListView":
-            raw_items = properties.get("model_items", [])
-            if isinstance(raw_items, (list, tuple)):
-                model_items = [str(item) for item in raw_items]
-            elif raw_items in {None, ""}:
-                model_items = []
-            else:
-                model_items = [str(raw_items)]
-            properties["model_items"] = model_items
-        if type_name == "QTreeView":
-            raw_headers = properties.get("header_labels", [])
-            if isinstance(raw_headers, (list, tuple)):
-                header_labels = [str(item) for item in raw_headers]
-            elif raw_headers in {None, ""}:
-                header_labels = []
-            else:
-                header_labels = [str(raw_headers)]
-            properties["header_labels"] = header_labels
-        if type_name == "QTableView":
-            column_count = int(properties.get("column_count", 3))
-            if column_count < 0:
-                column_count = 0
-            raw_headers = properties.get("header_labels", [])
-            if isinstance(raw_headers, (list, tuple)):
-                header_labels = [str(item) for item in raw_headers]
-            elif raw_headers in {None, ""}:
-                header_labels = []
-            else:
-                header_labels = [str(raw_headers)]
-            properties["column_count"] = column_count
-            properties["header_labels"] = header_labels[:column_count]
-        if type_name == "QTableWidget":
-            row_count = int(properties.get("row_count", 3))
-            column_count = int(properties.get("column_count", 3))
-            if row_count < 0:
-                row_count = 0
-            if column_count < 0:
-                column_count = 0
-            raw_horizontal = properties.get("horizontal_headers", [])
-            if isinstance(raw_horizontal, (list, tuple)):
-                horizontal_headers = [str(item) for item in raw_horizontal]
-            elif raw_horizontal in {None, ""}:
-                horizontal_headers = []
-            else:
-                horizontal_headers = [str(raw_horizontal)]
-            raw_vertical = properties.get("vertical_headers", [])
-            if isinstance(raw_vertical, (list, tuple)):
-                vertical_headers = [str(item) for item in raw_vertical]
-            elif raw_vertical in {None, ""}:
-                vertical_headers = []
-            else:
-                vertical_headers = [str(raw_vertical)]
-            raw_cells = properties.get("cell_values", [])
-            cell_values: list[list[str]] = []
-            if isinstance(raw_cells, (list, tuple)):
-                for raw_row in raw_cells[:row_count]:
-                    if isinstance(raw_row, (list, tuple)):
-                        normalized_row = [str(item) for item in raw_row[:column_count]]
-                    elif raw_row in {None, ""}:
-                        normalized_row = []
-                    else:
-                        normalized_row = [str(raw_row)][:column_count]
-                    cell_values.append(normalized_row)
-            properties["row_count"] = row_count
-            properties["column_count"] = column_count
-            properties["horizontal_headers"] = horizontal_headers[:column_count]
-            properties["vertical_headers"] = vertical_headers[:row_count]
-            properties["cell_values"] = cell_values
-        if type_name == "QTreeWidget":
-            column_count = int(properties.get("column_count", 1))
-            if column_count < 0:
-                column_count = 0
-            raw_headers = properties.get("header_labels", [])
-            if isinstance(raw_headers, (list, tuple)):
-                header_labels = [str(item) for item in raw_headers]
-            elif raw_headers in {None, ""}:
-                header_labels = []
-            else:
-                header_labels = [str(raw_headers)]
-            raw_tree_items = properties.get("tree_items", [])
-            properties["column_count"] = column_count
-            properties["header_labels"] = [] if column_count == 0 else header_labels[:column_count]
-            properties["tree_items"] = PythonImporter._normalize_tree_widget_items(raw_tree_items, column_count)
-        if type_name == "QDateEdit":
-            minimum_date = normalize_date_string(str(properties.get("minimum_date", "1900-01-01")), "1900-01-01")
-            maximum_date = normalize_date_string(str(properties.get("maximum_date", "2100-12-31")), "2100-12-31")
-            minimum_parsed = parse_date_string(minimum_date)
-            maximum_parsed = parse_date_string(maximum_date)
-            if minimum_parsed is None or maximum_parsed is None:
-                self._raise_diagnostic(
-                    "QDateEdit importer requires valid fallback dates.",
-                    stage="normalize_properties",
-                    pattern="YYYY-MM-DD",
-                )
-            if minimum_parsed > maximum_parsed:
-                maximum_parsed = minimum_parsed
-            current_date = normalize_date_string(str(properties.get("date", "2026-01-01")), "2026-01-01")
-            current_parsed = parse_date_string(current_date)
-            if current_parsed is None:
-                current_parsed = minimum_parsed
-            if current_parsed < minimum_parsed:
-                current_parsed = minimum_parsed
-            if current_parsed > maximum_parsed:
-                current_parsed = maximum_parsed
-            properties["minimum_date"] = format_date_string(minimum_parsed)
-            properties["maximum_date"] = format_date_string(maximum_parsed)
-            properties["date"] = format_date_string(current_parsed)
-        if type_name == "QCalendarWidget":
-            minimum_date = normalize_date_string(str(properties.get("minimum_date", "1900-01-01")), "1900-01-01")
-            maximum_date = normalize_date_string(str(properties.get("maximum_date", "2100-12-31")), "2100-12-31")
-            minimum_parsed = parse_date_string(minimum_date)
-            maximum_parsed = parse_date_string(maximum_date)
-            if minimum_parsed is None or maximum_parsed is None:
-                self._raise_diagnostic(
-                    "QCalendarWidget importer requires valid fallback dates.",
-                    stage="normalize_properties",
-                    pattern="YYYY-MM-DD",
-                )
-            if minimum_parsed > maximum_parsed:
-                maximum_parsed = minimum_parsed
-            selected_date = normalize_date_string(str(properties.get("selected_date", "2026-01-01")), "2026-01-01")
-            selected_parsed = parse_date_string(selected_date)
-            if selected_parsed is None:
-                selected_parsed = minimum_parsed
-            if selected_parsed < minimum_parsed:
-                selected_parsed = minimum_parsed
-            if selected_parsed > maximum_parsed:
-                selected_parsed = maximum_parsed
-            properties["minimum_date"] = format_date_string(minimum_parsed)
-            properties["maximum_date"] = format_date_string(maximum_parsed)
-            properties["selected_date"] = format_date_string(selected_parsed)
-        if type_name == "QFontComboBox":
-            properties["current_font_family"] = str(properties.get("current_font_family", ""))
-        if type_name == "QKeySequenceEdit":
-            properties["key_sequence"] = str(properties.get("key_sequence", ""))
-        if type_name == "QDial":
-            minimum = int(properties.get("minimum", 0))
-            maximum = int(properties.get("maximum", 100))
-            if minimum > maximum:
-                maximum = minimum
-            step = int(properties.get("step", 1))
-            if step < 1:
-                step = 1
-            value = int(properties.get("value", 0))
-            if value < minimum:
-                value = minimum
-            if value > maximum:
-                value = maximum
-            properties["minimum"] = minimum
-            properties["maximum"] = maximum
-            properties["step"] = step
-            properties["value"] = value
-        if type_name == "QLCDNumber":
-            digit_count = int(properties.get("digit_count", 5))
-            if digit_count < 1:
-                digit_count = 1
-            properties["digit_count"] = digit_count
-            properties["value"] = int(properties.get("value", 0))
-        if type_name == "QTimeEdit":
-            minimum_time = normalize_time_string(str(properties.get("minimum_time", "00:00:00")), "00:00:00")
-            maximum_time = normalize_time_string(str(properties.get("maximum_time", "23:59:59")), "23:59:59")
-            minimum_parsed = parse_time_string(minimum_time)
-            maximum_parsed = parse_time_string(maximum_time)
-            if minimum_parsed is None or maximum_parsed is None:
-                self._raise_diagnostic(
-                    "QTimeEdit importer requires valid fallback times.",
-                    stage="normalize_properties",
-                    pattern="HH:MM:SS",
-                )
-            if minimum_parsed > maximum_parsed:
-                maximum_parsed = minimum_parsed
-            current_time = normalize_time_string(str(properties.get("time", "12:00:00")), "12:00:00")
-            current_parsed = parse_time_string(current_time)
-            if current_parsed is None:
-                current_parsed = minimum_parsed
-            if current_parsed < minimum_parsed:
-                current_parsed = minimum_parsed
-            if current_parsed > maximum_parsed:
-                current_parsed = maximum_parsed
-            properties["minimum_time"] = format_time_string(minimum_parsed)
-            properties["maximum_time"] = format_time_string(maximum_parsed)
-            properties["time"] = format_time_string(current_parsed)
-        if type_name == "QDateTimeEdit":
-            minimum_datetime = normalize_datetime_string(
-                str(properties.get("minimum_datetime", "1900-01-01 00:00:00")),
-                "1900-01-01 00:00:00",
-            )
-            maximum_datetime = normalize_datetime_string(
-                str(properties.get("maximum_datetime", "2100-12-31 23:59:59")),
-                "2100-12-31 23:59:59",
-            )
-            minimum_parsed = parse_datetime_string(minimum_datetime)
-            maximum_parsed = parse_datetime_string(maximum_datetime)
-            if minimum_parsed is None or maximum_parsed is None:
-                self._raise_diagnostic(
-                    "QDateTimeEdit importer requires valid fallback datetimes.",
-                    stage="normalize_properties",
-                    pattern="YYYY-MM-DD HH:MM:SS",
-                )
-            if minimum_parsed > maximum_parsed:
-                maximum_parsed = minimum_parsed
-            current_datetime = normalize_datetime_string(
-                str(properties.get("datetime", "2026-01-01 12:00:00")),
-                "2026-01-01 12:00:00",
-            )
-            current_parsed = parse_datetime_string(current_datetime)
-            if current_parsed is None:
-                current_parsed = minimum_parsed
-            if current_parsed < minimum_parsed:
-                current_parsed = minimum_parsed
-            if current_parsed > maximum_parsed:
-                current_parsed = maximum_parsed
-            properties["minimum_datetime"] = format_datetime_string(minimum_parsed)
-            properties["maximum_datetime"] = format_datetime_string(maximum_parsed)
-            properties["datetime"] = format_datetime_string(current_parsed)
-        if type_name == "QProgressBar":
-            minimum = int(properties.get("minimum", 0))
-            maximum = int(properties.get("maximum", 100))
-            if minimum > maximum:
-                maximum = minimum
-            value = int(properties.get("value", 0))
-            properties["minimum"] = minimum
-            properties["maximum"] = maximum
-            properties["value"] = max(minimum, min(value, maximum))
-            properties["text_visible"] = bool(properties.get("text_visible", True))
-        if type_name == "QTextEdit":
-            properties["text"] = str(properties.get("text", ""))
-            properties["placeholder"] = str(properties.get("placeholder", ""))
-            properties["read_only"] = bool(properties.get("read_only", False))
-        if type_name == "QPlainTextEdit":
-            properties["text"] = str(properties.get("text", ""))
-            properties["placeholder"] = str(properties.get("placeholder", ""))
-            properties["read_only"] = bool(properties.get("read_only", False))
-        if type_name == "QDoubleSpinBox":
-            minimum = float(properties.get("minimum", 0.0))
-            maximum = float(properties.get("maximum", 99.0))
-            if minimum > maximum:
-                maximum = minimum
-            step = float(properties.get("step", 1.0))
-            if step <= 0:
-                step = 1.0
-            decimals = int(properties.get("decimals", 2))
-            if decimals < 0:
-                decimals = 0
-            if decimals > 10:
-                decimals = 10
-            value = float(properties.get("value", 0.0))
-            properties["minimum"] = minimum
-            properties["maximum"] = maximum
-            properties["step"] = step
-            properties["decimals"] = decimals
-            properties["value"] = max(minimum, min(value, maximum))
-            properties["prefix"] = str(properties.get("prefix", ""))
-            properties["suffix"] = str(properties.get("suffix", ""))
+            properties["sizes"] = [max(1, int(sizes[0])), max(1, int(sizes[1]))]
+        if type_name == "QWizard":
+            properties["window_title"] = str(properties.get("window_title", "Wizard"))
+            properties["current_index"] = max(0, int(properties.get("current_index", 0)))
+        if type_name == "TabPage":
+            properties["title"] = str(properties.get("title", "Tab"))
+        if type_name == "WizardPage":
+            properties["title"] = str(properties.get("title", "Page"))
+            properties["subtitle"] = str(properties.get("subtitle", ""))
         return properties
+
+    def _apply_widget_normalizer(self, type_name: str, properties: dict) -> dict:
+        entity = EntityModel(
+            id="imported_entity",
+            type=type_name,
+            parent_id="form_root",
+            name="imported_entity",
+            order=0,
+            geometry=make_geometry(0, 0, 0, 0),
+            properties=dict(properties),
+        )
+        self._property_normalizer.normalize(entity)
+        return entity.properties
 
     @staticmethod
     def _extract_call(statement: ast.stmt) -> ast.Call | None:

@@ -1,0 +1,284 @@
+Current Work Plan
+
+Date: 2026-04-10
+Working branch: `codex/working-baseline`
+Stable baseline branch: `main`
+Full test status at the moment of writing: `198 passed, 82 subtests passed`
+Status update: completed during the current execution cycle and verified by full test run
+
+
+1. Purpose of this document
+
+This file fixes the current project state and defines the next work route.
+It is not a historical note, but the active working plan for the current stage.
+
+The main objective of this stage is not to add random features, but to continue
+turning the editor into a maintainable platform with clear layer boundaries,
+predictable behavior, and safe refactoring support.
+
+
+2. What is already stable enough to treat as foundation
+
+The following areas are in a good enough state to avoid broad rewrites unless a
+clear need appears.
+
+- Application bootstrap and entry flow
+  Files:
+  - `form_constructor/main.py`
+  - `form_constructor/app/bootstrap.py`
+  - `form_constructor/app/application.py`
+  Notes:
+  - Startup is already compact and understandable.
+  - Dependency composition is separated from editor logic.
+
+- Controller-level document orchestration
+  Files:
+  - `form_constructor/controller/document_controller.py`
+  - `form_constructor/controller/document_io_service.py`
+  Notes:
+  - JSON and Python file I/O are no longer packed into `DocumentController`.
+  - Controller responsibility is now closer to orchestration, selection, and UI-facing flow.
+
+- Core document model
+  Files:
+  - `form_constructor/document/form_document.py`
+  Notes:
+  - The file is still important and non-trivial, but it is already healthier than before.
+  - Special container logic was partially simplified.
+  - Shared handling for indexed children was extracted for `QTabWidget` and `QWizard`.
+
+- Property normalization layer
+  Files:
+  - `form_constructor/document/property_normalizer.py`
+  - `form_constructor/document/__init__.py`
+  Notes:
+  - Property normalization was correctly extracted from `FormDocument`.
+  - This should now stay as a separate responsibility and not drift back into the document model.
+
+- Validation layer
+  Files:
+  - `form_constructor/document/validator.py`
+  Notes:
+  - Validator still acts as the main structural guardrail.
+  - It remains one of the most important correctness layers in the whole project.
+
+- Import/export and UI diagnostics
+  Files:
+  - `form_constructor/conversion/importer.py`
+  - `form_constructor/ui/main_editor/main_editor_window.py`
+  - `tests/test_feedback_layer_smoke.py`
+  Notes:
+  - Diagnostic messages are already more useful for real editor work.
+  - The UI now shows structured details such as `stage` and `filename` where available.
+
+- Project infrastructure and developer workflow
+  Files:
+  - `README.md`
+  - `pyproject.toml`
+  - `.editorconfig`
+  - `.gitattributes`
+  - `.github/workflows/tests.yml`
+  - `run_form_constructor.bat`
+  - `run_tests.bat`
+  - `setup_windows_env.bat`
+  Notes:
+  - The repository now has a much better practical development baseline than at the initial snapshot.
+
+
+3. Confirmation that the current direction is correct
+
+The project is moving in the right direction.
+
+This is supported by concrete signals:
+
+- The recent work reduced large concentrations of responsibility instead of adding more.
+- Architectural extractions were made at natural boundaries:
+  - I/O moved out of `DocumentController`
+  - property normalization moved out of `FormDocument`
+- Refactors were validated by the existing test suite instead of being done blindly.
+- The project now has a stronger development loop:
+  README, Windows scripts, CI, diagnostics, and a more structured repository baseline.
+- The codebase is becoming easier to extend without lowering confidence.
+
+In short:
+the work is not drifting into cosmetic cleanup.
+It is steadily reducing structural risk.
+
+
+4. Main risks that still define the next stage
+
+These are the main remaining pressure points of the codebase.
+
+- `form_constructor/factory/widget_factory.py`
+  Why it matters:
+  - It is the next large per-widget behavior hub.
+  - Runtime widget creation and property application are concentrated here.
+  Main risk:
+  - A change here can break preview/runtime behavior for many widgets at once.
+
+- `form_constructor/ui/properties/property_panel.py`
+  Why it matters:
+  - It carries a lot of UI responsibilities in one place.
+  - It likely mixes schema-driven editing, context-dependent UI sections, and special-case handling.
+  Main risk:
+  - It can become the main maintenance bottleneck on the editor side.
+
+- Cross-layer rule duplication
+  Affected files:
+  - `form_constructor/document/property_normalizer.py`
+  - `form_constructor/document/validator.py`
+  - `form_constructor/factory/widget_factory.py`
+  - `form_constructor/conversion/importer.py`
+  - `form_constructor/conversion/exporter.py`
+  Why it matters:
+  - Some overlap is normal, but accidental duplication increases the chance of divergence.
+  Main risk:
+  - A rule change can be applied in one layer and silently missed in another.
+
+- `dox/` as documentation source
+  Why it matters:
+  - The folder preserves history well, but is not yet a compact, up-to-date technical map.
+  Main risk:
+  - Knowledge remains spread between history notes, tests, and implementation details.
+
+
+5. Current priorities in order
+
+Priority 1: Decompose `WidgetFactory`
+
+Target file:
+- `form_constructor/factory/widget_factory.py`
+
+Why this is first:
+- After the completed controller/document refactors, this is the next biggest logic concentration.
+- It likely contains the largest remaining switchboard of widget-specific runtime application logic.
+- Refactoring it now continues the same architectural direction already proven to work well.
+
+Desired result:
+- The file becomes easier to navigate.
+- Per-widget application logic is grouped more clearly.
+- Shared property-application patterns become more explicit.
+- Behavior stays unchanged.
+
+
+Priority 2: Simplify `PropertyPanel`
+
+Target files:
+- `form_constructor/ui/properties/property_panel.py`
+- `form_constructor/ui/properties/property_editor_factory.py`
+
+Why this is second:
+- Once `WidgetFactory` is safer, the next major maintainability gain is on the editor UI side.
+- The property panel is likely the next area where complexity growth will hurt speed of change.
+
+Desired result:
+- UI logic is easier to reason about.
+- Mode-specific behavior is less entangled.
+- Special sections and schema-driven editors are easier to extend.
+
+
+Priority 3: Clarify rule ownership between layers
+
+Primary files:
+- `form_constructor/document/property_normalizer.py`
+- `form_constructor/document/validator.py`
+- `form_constructor/factory/widget_factory.py`
+- `form_constructor/conversion/importer.py`
+- `form_constructor/conversion/exporter.py`
+
+Desired layer split:
+- Validator: rejects invalid state
+- Normalizer: coerces raw values into acceptable state
+- WidgetFactory: applies valid state to runtime widgets
+- Importer/Exporter: translate formats and carry diagnostics
+
+Why this is third and not first:
+- It should be done after the large concentration points are easier to see.
+- Otherwise there is a risk of trying to clarify ownership while the hosting files are still too dense.
+
+
+6. Recommended execution sequence
+
+The safest order for the current stage is:
+
+1. Refactor `WidgetFactory` in small verified passes.
+2. Keep behavior frozen while restructuring internal organization.
+3. Add or tighten focused tests where `WidgetFactory` refactors need extra safety.
+4. Move to `PropertyPanel` only after `WidgetFactory` stabilizes.
+5. Revisit cross-layer rule ownership once both large hotspots are easier to inspect.
+6. Update documentation when the new boundaries settle enough to describe clearly.
+
+
+7. Recommended upcoming large commits
+
+These are the most natural next commit-level blocks.
+
+- Commit block 1
+  Title idea:
+  - `Refactor widget property application flow`
+  Scope:
+  - internal decomposition of `WidgetFactory`
+  - grouped helpers or per-domain applicators
+  - no behavior change
+
+- Commit block 2
+  Title idea:
+  - `Improve widget factory test coverage`
+  Scope:
+  - focused tests around sensitive widget application paths
+  - additional smoke coverage where current confidence is thinner
+
+- Commit block 3
+  Title idea:
+  - `Simplify property panel structure`
+  Scope:
+  - reduce mode-switching density
+  - isolate special sections and editor-building flow
+
+- Commit block 4
+  Title idea:
+  - `Clarify rule ownership across document and runtime layers`
+  Scope:
+  - reduce accidental duplication
+  - keep public behavior and diagnostics stable
+
+- Commit block 5
+  Title idea:
+  - `Document current architecture boundaries`
+  Scope:
+  - short architecture note in `README` or `dox/`
+  - record responsibilities of controller, document, normalizer, validator, factory, importer, exporter
+
+
+8. Completion condition for this plan
+
+This current plan should be considered complete when all of the following are true:
+
+- `WidgetFactory` is no longer a major maintenance bottleneck.
+- `PropertyPanel` is simplified without visible behavioral regression.
+- Layer responsibilities are clearer in code than they are now.
+- Focused tests cover the most sensitive refactored paths.
+- The full test suite still passes after the stage is completed.
+
+
+9. Practical working rules for this stage
+
+To keep the project moving safely, the following rules should stay in effect:
+
+- Prefer larger logical commits instead of tiny noisy commits.
+- Perform refactors in small internal steps, but commit only when a coherent block is complete.
+- Run the full test suite after each meaningful architectural block.
+- Preserve behavior first; change public behavior only when there is a clear reason.
+- If a change increases ambiguity between layers, stop and tighten boundaries instead of pushing forward.
+
+
+10. Bottom line
+
+The project is on a healthy path.
+
+The baseline is stable.
+The refactoring direction is correct.
+The next stage is clear.
+
+The right next move is to continue the same style of careful architecture work:
+first `WidgetFactory`, then `PropertyPanel`, then cross-layer boundary cleanup.
